@@ -22,7 +22,8 @@ A new box starts with CMS host **172.19.0.3**, port 4053. The technician can cha
   "buttons_rev": 3,
   "apk_results": [ { "apk_id": 4, "state": "installed", "message": "" } ],
   "firmware": "HGC.12June.v1.5",
-  "android": "9"
+  "android": "9",
+  "display": { "scale": 92, "mode": "1080P 60Hz", "modes": [ "720P 60Hz", "1080P 60Hz", "4K2K 60HZ" ] }
 }
 ```
 
@@ -50,6 +51,7 @@ Answer `200`:
   "interval_sec": 300,
   "wallpaper": { "hash": "<sha256 hex>", "url": "/api/box/wallpaper/<hash>" },
   "buttons": { "rev": 3, "list": [ { "name": "Movies", "package": "com.example.player", "activity": "" } ] },
+  "display": { "scale": 94, "mode": "1080P 60Hz" },
   "apks": [ { "apk_id": 4, "package": "com.excel.estvlauncher.custom", "version_code": 2, "version_name": "1.0.1",
               "sha256": "<hex>", "size": 4567890, "url": "/api/box/apk/4" } ]
 }
@@ -65,6 +67,13 @@ Answer `200`:
   `version_code` is lower, or when the package isn't installed. It doesn't retry an `apk_id` that failed
   until the CMS sends a different `apk_id` for that package, or the technician presses Check now.
 - `property_id` is stored on the box for the eslink fallback.
+- `display` (CMS 1.0.2 / launcher 1.0.2) is the screen size and resolution this box should have. The box's own
+  setting on the CMS wins over the hotel's. `scale` 0 and `mode` "" mean "leave it as it is". The CMS leaves out
+  a hotel resolution that this box's TV doesn't report. The box applies each target once. A target it fails to
+  apply isn't retried every 5 minutes (that would make the picture flicker). "Check now" applies it again.
+  In the check-in, the box reports its current `scale` (%), `mode` and the `modes` its TV supports, read through
+  the firmware's android.os.DisplayOutputManager (as esTVLauncher's "Adjust Screen Size" does). A box without
+  that API sends no `display`.
 - Errors are a non-200 status or `{ "ok": false, "error": "..." }`.
 
 ## 2. Files

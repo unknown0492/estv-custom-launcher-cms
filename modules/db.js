@@ -95,6 +95,20 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 ` );
 
+// 1.0.2: display (screen size / resolution) - what the box reports and its own override (NULL = hotel setting)
+const boxColumns = db.prepare( 'PRAGMA table_info( boxes )' ).all().map( ( c ) => c.name );
+[
+    [ 'display_scale',  "INTEGER NOT NULL DEFAULT -1" ],      // Reported screen size %, -1 = unknown
+    [ 'display_mode',   "TEXT    NOT NULL DEFAULT ''" ],      // Reported resolution
+    [ 'display_modes',  "TEXT    NOT NULL DEFAULT '[]'" ],    // Reported supported resolutions (JSON)
+    [ 'override_scale', "INTEGER" ],                          // This box's own screen size, NULL = hotel setting
+    [ 'override_mode',  "TEXT" ]                              // This box's own resolution, NULL = hotel setting
+].forEach( function( col ) {
+    if ( boxColumns.indexOf( col[ 0 ] ) < 0 ) {
+        db.exec( 'ALTER TABLE boxes ADD COLUMN ' + col[ 0 ] + ' ' + col[ 1 ] );
+    }
+} );
+
 const getSetting = db.prepare( 'SELECT value FROM settings WHERE key = ?' );
 const putSetting = db.prepare( 'INSERT INTO settings ( key, value ) VALUES ( ?, ? ) ON CONFLICT( key ) DO UPDATE SET value = excluded.value' );
 const delSetting = db.prepare( 'DELETE FROM settings WHERE key = ?' );
@@ -134,4 +148,24 @@ function bumpButtonsRev() {
     return rev;
 }
 
-module.exports = { db, setting, setSetting, bumpButtonsRev };
+/**
+ * @description The screen size / resolution a box should have: its own override, else the hotel setting
+ * @param {object} box - boxes row (override_scale / override_mode)
+ * @returns {object} { scale: 80-100 or 0 = leave as it is, mode: name or '' = leave as it is }
+ */
+function displayTarget( box ) {
+    const hotelScale = Number( setting( 'display_scale', '0' ) ) || 0;
+    let hotelMode    = setting( 'display_mode' );
+    // The hotel resolution is skipped on a box whose TV does not report it (the box keeps its own)
+    let modes = [];
+    try { modes = JSON.parse( ( box && box.display_modes ) || '[]' ); } catch ( e ) { modes = []; }
+    if ( hotelMode && Array.isArray( modes ) && modes.length > 0 && modes.indexOf( hotelMode ) < 0 ) {
+        hotelMode = '';
+    }
+    return {
+        scale: box && box.override_scale !== null && box.override_scale !== undefined ? box.override_scale : hotelScale,
+        mode:  box && box.override_mode !== null && box.override_mode !== undefined ? box.override_mode : hotelMode
+    };
+}
+
+module.exports = { db, setting, setSetting, bumpButtonsRev, displayTarget };

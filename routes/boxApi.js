@@ -10,7 +10,7 @@ const path    = require( 'path' );
 const express = require( 'express' );
 const config  = require( '../config/config' );
 const apk     = require( '../modules/apk' );
-const { db, setting } = require( '../modules/db' );
+const { db, setting, displayTarget } = require( '../modules/db' );
 
 const router = express.Router();
 
@@ -31,6 +31,7 @@ const upsertResult = db.prepare( `
     INSERT INTO box_apk_results ( mac, apk_id, state, message, via, updated_on ) VALUES ( ?, ?, ?, ?, 'box', ? )
     ON CONFLICT( mac, apk_id ) DO UPDATE SET state = excluded.state, message = excluded.message, via = 'box', updated_on = excluded.updated_on` );
 const getBox      = db.prepare( 'SELECT * FROM boxes WHERE mac = ?' );
+const setDisplay  = db.prepare( 'UPDATE boxes SET display_scale = ?, display_mode = ?, display_modes = ? WHERE mac = ?' );
 const apkExists   = db.prepare( 'SELECT 1 FROM apks WHERE id = ?' );
 const listButtons = db.prepare( 'SELECT name, package, activity FROM buttons ORDER BY sort, id' );
 // Newest active APK per package (highest version code, then newest upload)
@@ -105,6 +106,14 @@ router.post( '/checkin', express.json( { limit: '64kb' } ), function( req, res )
                 upsertResult.run( mac, id, state, text( r.message, 300 ), now );
             }
         } );
+        // 1.0.2: screen size / resolution as the box has them now (absent on a box without the display API)
+        if ( b.display && typeof b.display === 'object' ) {
+            const scale = Number( b.display.scale );
+            const modes = ( Array.isArray( b.display.modes ) ? b.display.modes : [] )
+                .map( ( m ) => text( m, 40 ) ).filter( ( m ) => m !== '' ).slice( 0, 60 );
+            setDisplay.run( Number.isInteger( scale ) && scale >= 0 && scale <= 100 ? scale : -1,
+                            text( b.display.mode, 40 ), JSON.stringify( modes ), mac );
+        }
     } )();
 
     const wallHash = setting( 'wallpaper_hash' );
@@ -116,6 +125,7 @@ router.post( '/checkin', express.json( { limit: '64kb' } ), function( req, res )
         interval_sec:  config.boxes.intervalSec,
         wallpaper:     wallHash ? { hash: wallHash, url: '/api/box/wallpaper/' + wallHash } : null,
         buttons:       { rev: Number( setting( 'buttons_rev', '0' ) ), list: listButtons.all() },
+        display:       displayTarget( getBox.get( mac ) ),
         apks:          offeredApks.all().map( ( a ) => ( {
             apk_id:       a.id,
             package:      a.package,

@@ -66,6 +66,7 @@
                     <li class="nav-item"><a class="nav-link" href="#boxes" data-page="boxes"><i class="bi bi-hdd-network me-1"></i>Boxes</a></li>
                     <li class="nav-item"><a class="nav-link" href="#wallpaper" data-page="wallpaper"><i class="bi bi-image me-1"></i>Wallpaper</a></li>
                     <li class="nav-item"><a class="nav-link" href="#buttons" data-page="buttons"><i class="bi bi-grid-3x2-gap me-1"></i>Home buttons</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#display" data-page="display"><i class="bi bi-aspect-ratio me-1"></i>Display</a></li>
                     <li class="nav-item"><a class="nav-link" href="#apks" data-page="apks"><i class="bi bi-box-seam me-1"></i>APK updates</a></li>
                     <li class="nav-item"><a class="nav-link" href="#settings" data-page="settings"><i class="bi bi-gear me-1"></i>Settings</a></li>
                 </ul>
@@ -110,6 +111,7 @@
                                 <th class="cms-sort" data-sort="last_seen">Last seen</th>
                                 <th class="cms-sort" data-sort="launcher">Launcher</th>
                                 <th>Button apps</th>
+                                <th>Display</th>
                                 <th>Updates</th>
                                 <th class="text-end"></th>
                             </tr>
@@ -197,6 +199,51 @@
             </div>
         </section>
 
+        <!-- ---------- Display ---------- -->
+        <section class="cms-page d-none" id="page_display">
+            <div class="cms-page-head">
+                <div>
+                    <h2 class="h5 mb-1">Display</h2>
+                    <div class="text-body-secondary small">Screen size and resolution of every box. A box can have its own setting (Boxes page, <i class="bi bi-aspect-ratio"></i> button). Boxes apply a change within 5 minutes.</div>
+                </div>
+                <button class="btn btn-sm btn-primary" id="btn_display_save">
+                    <span class="spinner-border spinner-border-sm me-2 d-none"></span><i class="bi bi-floppy me-1"></i>Save
+                </button>
+            </div>
+            <div class="row g-4">
+                <div class="col-lg-6">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h3 class="h6 mb-3">Screen size</h3>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="radio" name="display_scale_mode" id="radio_scale_keep" value="keep">
+                                <label class="form-check-label" for="radio_scale_keep">Don't change (each box keeps its own)</label>
+                            </div>
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="radio" name="display_scale_mode" id="radio_scale_set" value="set">
+                                <label class="form-check-label" for="radio_scale_set">Set every box to</label>
+                            </div>
+                            <div class="d-flex align-items-center gap-3">
+                                <input type="range" class="form-range" id="range_scale" min="80" max="100" step="1">
+                                <span class="fw-semibold cms-scale-value" id="scale_value"></span>
+                            </div>
+                            <div class="small text-body-secondary mt-2">Smaller than 100 % shrinks the picture, so TVs that cut off the edges show everything. esTVLauncher's default is 94 %.</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h3 class="h6 mb-3">Resolution</h3>
+                            <label class="form-label" for="select_display_mode">Resolution of every box</label>
+                            <select class="form-select mb-2" id="select_display_mode"></select>
+                            <div class="small text-body-secondary" id="display_modes_info"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <!-- ---------- APK updates ---------- -->
         <section class="cms-page d-none" id="page_apks">
             <div class="cms-page-head">
@@ -254,6 +301,35 @@
         </section>
 
     </main>
+</div>
+
+<!-- One box's own screen size / resolution -->
+<div class="modal fade" id="modal_box_display" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Display of <span id="box_display_name"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="small text-body-secondary mb-3" id="box_display_now"></div>
+                <div class="mb-3">
+                    <label class="form-label" for="select_box_scale">Screen size</label>
+                    <select class="form-select" id="select_box_scale"></select>
+                </div>
+                <div>
+                    <label class="form-label" for="select_box_mode">Resolution</label>
+                    <select class="form-select" id="select_box_mode"></select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="btn_box_display_save">
+                    <span class="spinner-border spinner-border-sm me-2 d-none"></span>Save
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Confirmation dialog -->

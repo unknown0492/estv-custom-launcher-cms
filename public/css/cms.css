@@ -182,6 +182,12 @@ body {
     border-color: #fff;
 }
 
+/* ---------- Display ---------- */
+.cms-scale-value {
+    min-width: 48px;
+    text-align: right;
+}
+
 /* ---------- APK cards ---------- */
 .cms-apk-boxes {
     max-height: 360px;

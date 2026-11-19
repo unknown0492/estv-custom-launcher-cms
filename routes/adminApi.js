@@ -14,7 +14,7 @@ const logger  = require( '../modules/logger' );
 const auth    = require( '../modules/auth' );
 const apk     = require( '../modules/apk' );
 const adb     = require( '../modules/adb' );
-const { db, setting, setSetting, bumpButtonsRev } = require( '../modules/db' );
+const { db, setting, setSetting, bumpButtonsRev, displayTarget } = require( '../modules/db' );
 
 const router = express.Router();
 const json   = express.json( { limit: '64kb' } );
@@ -25,6 +25,38 @@ fs.mkdirSync( config.paths.wallpaper, { recursive: true } );
 const PKG_RE      = /^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+$/;
 const ACTIVITY_RE = /^\.?[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_$]+)*$/;
 const MAC_RE      = /^[0-9A-F]{2}(:[0-9A-F]{2}){5}$/;
+const MODE_RE     = /^[A-Za-z0-9 ().x]{1,40}$/;
+
+/**
+ * @description Reads a screen size / resolution sent by the page
+ * @param {object} body - { scale: null | 80-100, mode: null | name }
+ * @returns {object} { ok, error, scale, mode } (null = leave as it is / use the hotel setting)
+ */
+function readDisplay( body ) {
+    const scale = body && body.scale !== null && body.scale !== undefined && body.scale !== '' ? Number( body.scale ) : null;
+    const mode  = body && body.mode ? String( body.mode ).trim() : null;
+    if ( scale !== null && ( !Number.isInteger( scale ) || scale < 80 || scale > 100 ) ) {
+        return { ok: false, error: 'The screen size must be from 80 to 100 %' };
+    }
+    if ( mode !== null && !MODE_RE.test( mode ) ) {
+        return { ok: false, error: 'The resolution is not valid' };
+    }
+    return { ok: true, scale: scale, mode: mode };
+}
+
+/**
+ * @description A box's reported supported resolutions
+ * @param {object} b - boxes row
+ * @returns {Array<string>}
+ */
+function modesOf( b ) {
+    try {
+        const list = JSON.parse( b.display_modes || '[]' );
+        return Array.isArray( list ) ? list : [];
+    } catch ( e ) {
+        return [];
+    }
+}
 
 const wallpaperUpload = multer( { dest: config.paths.uploads, limits: { fileSize: config.limits.wallpaperBytes, files: 1 } } ).single( 'file' );
 const apkUpload       = multer( { dest: config.paths.uploads, limits: { fileSize: config.limits.apkBytes, files: 1 } } ).single( 'file' );
@@ -148,7 +180,15 @@ router.get( '/boxes', function( req, res ) {
             android:        b.android,
             first_seen:     b.first_seen,
             last_seen:      b.last_seen,
-            updates:        updates
+            updates:        updates,
+            display:        {
+                scale:          b.display_scale,
+                mode:           b.display_mode,
+                modes:          modesOf( b ),
+                override_scale: b.override_scale,
+                override_mode:  b.override_mode,
+                target:         displayTarget( b )
+            }
         };
     } );
     res.json( { ok: true, now: Date.now(), online_ms: config.boxes.onlineMs, late_ms: config.boxes.lateMs, boxes: boxes } );
@@ -165,6 +205,73 @@ router.delete( '/boxes/:mac', function( req, res ) {
     }
     db.prepare( 'DELETE FROM boxes WHERE mac = ?' ).run( mac );
     logger.info( 'Box ' + mac + ' removed by ' + req.user.user_id );
+    res.json( { ok: true } );
+} );
+
+/**
+ * @description PUT /boxes/:mac/display { scale, mode } - this box's own screen size / resolution (null = hotel setting)
+ */
+router.put( '/boxes/:mac/display', json, function( req, res ) {
+    const mac = String( req.params.mac || '' ).toUpperCase();
+    const box = MAC_RE.test( mac ) ? db.prepare( 'SELECT * FROM boxes WHERE mac = ?' ).get( mac ) : null;
+    if ( !box ) {
+        res.status( 404 ).json( { ok: false, error: 'No such box' } );
+        return;
+    }
+    const d = readDisplay( req.body );
+    if ( !d.ok ) {
+        res.status( 400 ).json( d );
+        return;
+    }
+    if ( d.mode !== null && modesOf( box ).length > 0 && modesOf( box ).indexOf( d.mode ) < 0 ) {
+        res.status( 400 ).json( { ok: false, error: 'This box\'s TV does not report ' + d.mode });
+        return;
+    }
+    db.prepare( 'UPDATE boxes SET override_scale = ?, override_mode = ? WHERE mac = ?' ).run( d.scale, d.mode, mac );
+    logger.info( 'Display of box ' + mac + ' set by ' + req.user.user_id + ': size ' + ( d.scale === null ? 'hotel' : d.scale + '%' )
+               + ', resolution ' + ( d.mode === null ? 'hotel' : d.mode ) );
+    res.json( { ok: true } );
+} );
+
+// ---------- Display (hotel-wide) ----------
+
+/**
+ * @description GET /display - hotel setting, and the resolutions the boxes report (with how many boxes support each)
+ */
+router.get( '/display', function( req, res ) {
+    const boxes = db.prepare( 'SELECT display_scale, display_mode, display_modes FROM boxes' ).all();
+    const count = {};
+    let reporting = 0;
+    boxes.forEach( function( b ) {
+        const list = modesOf( b );
+        if ( list.length > 0 || b.display_scale >= 0 ) {
+            reporting++;
+        }
+        list.forEach( ( m ) => { count[ m ] = ( count[ m ] || 0 ) + 1; } );
+    } );
+    res.json( {
+        ok:        true,
+        scale:     Number( setting( 'display_scale', '0' ) ) || null,
+        mode:      setting( 'display_mode' ) || null,
+        modes:     Object.keys( count ).map( ( m ) => ( { mode: m, boxes: count[ m ] } ) ),
+        boxes:     boxes.length,
+        reporting: reporting
+    } );
+} );
+
+/**
+ * @description PUT /display { scale, mode } - hotel-wide screen size / resolution (null = leave the boxes as they are)
+ */
+router.put( '/display', json, function( req, res ) {
+    const d = readDisplay( req.body );
+    if ( !d.ok ) {
+        res.status( 400 ).json( d );
+        return;
+    }
+    setSetting( 'display_scale', d.scale );
+    setSetting( 'display_mode', d.mode );
+    logger.info( 'Hotel display set by ' + req.user.user_id + ': size ' + ( d.scale === null ? 'unchanged' : d.scale + '%' )
+               + ', resolution ' + ( d.mode === null ? 'unchanged' : d.mode ) );
     res.json( { ok: true } );
 } );
 

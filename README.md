@@ -12,6 +12,7 @@ Windows PC on the hotel LAN, in PM2, and starts with Windows. It listens on port
   - Home buttons: name, package and start activity of each button after Menu.
   - APK updates: upload an APK of the launcher or a button app. Boxes install the newest active APK per app,
     and the page shows each box's progress. "Install via ADB" is a backup.
+  - Display: screen size (overscan %) and resolution for every box; a box can have its own on the Boxes page.
   - Settings: the property, this PC's address for the boxes, and the path to adb.exe.
 - **eslink:** the CMS keeps no eslink secret. Sign-in uses the person's own eslink account, through
   `scodezy_login`, `eslink_custom_launcher_cms_properties` and `eslink_custom_launcher_cms_sign_in`. A box that

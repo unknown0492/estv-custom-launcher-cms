@@ -233,6 +233,34 @@ function fakeEslink() {
         r = await call( 'DELETE', '/admin/api/boxes/' + encodeURIComponent( MAC ) );
         r = await call( 'GET', '/admin/api/boxes' );
         check( 'a removed box is gone', !r.json.boxes.some( ( b ) => b.mac === MAC ), r.json.boxes );
+        // ---------- Display (1.0.2) ----------
+        const DMAC = 'AA:BB:CC:00:00:02';
+        r = await call( 'POST', '/api/box/checkin', { mac: DMAC, display: { scale: 94, mode: '1080P 60Hz', modes: [ '720P 60Hz', '1080P 60Hz' ] } }, false );
+        check( 'no display setting: the box is told to leave it as it is', r.json.display && r.json.display.scale === 0 && r.json.display.mode === '', r.json.display );
+        r = await call( 'PUT', '/admin/api/display', { scale: 70, mode: null } );
+        check( 'a screen size below 80 % is refused', r.status === 400, r.json );
+        r = await call( 'PUT', '/admin/api/display', { scale: 90, mode: '720P 60Hz' } );
+        check( 'hotel display saved', r.json && r.json.ok, r.json );
+        r = await call( 'GET', '/admin/api/display' );
+        check( 'the display page lists the reported resolutions', r.json.scale === 90 && r.json.mode === '720P 60Hz'
+               && r.json.modes.some( ( m ) => m.mode === '1080P 60Hz' && m.boxes === 1 ), r.json );
+        r = await call( 'POST', '/api/box/checkin', { mac: DMAC }, false );
+        check( 'the box gets the hotel display', r.json.display.scale === 90 && r.json.display.mode === '720P 60Hz', r.json.display );
+        r = await call( 'POST', '/api/box/checkin', { mac: 'AA:BB:CC:00:00:03', display: { scale: 100, mode: '4K2K 60HZ', modes: [ '4K2K 60HZ' ] } }, false );
+        check( 'a box whose TV lacks the hotel resolution keeps its own', r.json.display.scale === 90 && r.json.display.mode === '', r.json.display );
+        r = await call( 'PUT', '/admin/api/boxes/' + encodeURIComponent( DMAC ) + '/display', { scale: 85, mode: '4K2K 60HZ' } );
+        check( 'a resolution the box does not report is refused for that box', r.status === 400, r.json );
+        r = await call( 'PUT', '/admin/api/boxes/' + encodeURIComponent( DMAC ) + '/display', { scale: 85, mode: '1080P 60Hz' } );
+        r = await call( 'POST', '/api/box/checkin', { mac: DMAC }, false );
+        check( 'the box own setting wins over the hotel one', r.json.display.scale === 85 && r.json.display.mode === '1080P 60Hz', r.json.display );
+        r = await call( 'GET', '/admin/api/boxes' );
+        const db2 = r.json.boxes.find( ( b ) => b.mac === DMAC );
+        check( 'the Boxes page shows current, own and target display', db2 && db2.display.scale === 94 && db2.display.override_scale === 85
+               && db2.display.target.mode === '1080P 60Hz' && db2.display.modes.length === 2, db2 && db2.display );
+        await call( 'PUT', '/admin/api/boxes/' + encodeURIComponent( DMAC ) + '/display', { scale: null, mode: null } );
+        r = await call( 'POST', '/api/box/checkin', { mac: DMAC }, false );
+        check( 'clearing the box own setting goes back to the hotel one', r.json.display.scale === 90 && r.json.display.mode === '720P 60Hz', r.json.display );
+
         // ---------- First set-up (stateless: the page sends the user ID / password again with the property) ----------
         r = await call( 'POST', '/admin/api/settings/change-property' );
         check( 'change property forgets the property', r.json && r.json.ok, r.json );

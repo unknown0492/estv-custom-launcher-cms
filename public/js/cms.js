@@ -18,6 +18,7 @@ var Cms = {
     wallpaperUrl: '',      // For the buttons preview background
     setupMode: false,      // First set-up: the sign-in form also shows the property choice
     refreshTimer: null,
+    displayMac: '',        // Box whose own display is being edited
 
     /**
      * @description Starts the page: signed in -> app, else sign-in
@@ -95,6 +96,15 @@ var Cms = {
                 Cms.api( 'DELETE', 'boxes/' + encodeURIComponent( mac ) ).done( function(){ Cms.loadBoxes(); } ).fail( Cms.toastError );
             });
         });
+
+        // Display
+        $( 'input[name="display_scale_mode"]' ).on( 'change', function(){
+            $( '#range_scale' ).prop( 'disabled', $( '#radio_scale_keep' ).is( ':checked' ) );
+        });
+        $( '#range_scale' ).on( 'input', function(){ $( '#scale_value' ).text( this.value + ' %' ); } );
+        $( '#btn_display_save' ).on( 'click', function(){ Cms.saveDisplay( $( this ) ); } );
+        $( '#box_rows' ).on( 'click', '.cms-box-display', function(){ Cms.openBoxDisplay( $( this ).data( 'mac' ) ); } );
+        $( '#btn_box_display_save' ).on( 'click', function(){ Cms.saveBoxDisplay( $( this ) ); } );
 
         // Wallpaper
         $( '#btn_wallpaper_upload' ).on( 'click', function(){ Cms.uploadWallpaper( $( this ) ); } );
@@ -282,7 +292,7 @@ var Cms = {
      * @returns {void}
      */
     go: function( page ){
-        if( [ 'boxes', 'wallpaper', 'buttons', 'apks', 'settings' ].indexOf( page ) < 0 ){
+        if( [ 'boxes', 'wallpaper', 'buttons', 'display', 'apks', 'settings' ].indexOf( page ) < 0 ){
             page = 'boxes';
         }
         if( Cms.page === 'buttons' && page !== 'buttons' && Cms.buttonsDirty && !window.confirm( 'Leave without saving the home buttons?' ) ){
@@ -297,7 +307,7 @@ var Cms = {
         $( '#page_' + page ).removeClass( 'd-none' );
         $( '#nav_pages .nav-link' ).removeClass( 'active' ).filter( '[data-page="' + page + '"]' ).addClass( 'active' );
         bootstrap.Collapse.getInstance( '#nav_main' ) && bootstrap.Collapse.getInstance( '#nav_main' ).hide();
-        ( { boxes: Cms.loadBoxes, wallpaper: Cms.loadWallpaper, buttons: Cms.loadButtons, apks: Cms.loadApks, settings: Cms.loadSettings } )[ page ]();
+        ( { boxes: Cms.loadBoxes, wallpaper: Cms.loadWallpaper, buttons: Cms.loadButtons, display: Cms.loadDisplay, apks: Cms.loadApks, settings: Cms.loadSettings } )[ page ]();
     },
 
     // ==================== Boxes ====================
@@ -365,7 +375,7 @@ var Cms = {
         $( '#count_pending' ).text( pending );
 
         if( !list.length ){
-            $( '#box_rows' ).html( '<tr><td colspan="8" class="text-center text-body-secondary py-5">' +
+            $( '#box_rows' ).html( '<tr><td colspan="9" class="text-center text-body-secondary py-5">' +
                 ( Cms.boxes.length ? 'No box matches the search.' : 'No box has checked in yet. Boxes appear here at their first check-in (CMS IP set in the launcher\'s Secret Menu).' ) + '</td></tr>' );
             return;
         }
@@ -390,10 +400,74 @@ var Cms = {
                 '<td class="text-nowrap" title="' + esc( Cms.time( b.last_seen ) ) + '"><span class="cms-dot ' + s.cls + '"></span>' + esc( Cms.ago( b.last_seen ) ) + '</td>' +
                 '<td>' + ( b.launcher ? esc( b.launcher ) : '-' ) + '</td>' +
                 '<td class="small">' + apps + '</td>' +
+                '<td class="small text-nowrap">' + Cms.displayCell( b.display ) + '</td>' +
                 '<td>' + upd + '</td>' +
-                '<td class="text-end"><button class="btn btn-sm btn-outline-danger cms-box-remove" data-mac="' + esc( b.mac ) + '" title="Remove from the list"><i class="bi bi-trash"></i></button></td>' +
+                '<td class="text-end text-nowrap"><button class="btn btn-sm btn-outline-secondary me-1 cms-box-display" data-mac="' + esc( b.mac ) + '" title="Screen size and resolution of this box"><i class="bi bi-aspect-ratio"></i></button>' +
+                    '<button class="btn btn-sm btn-outline-danger cms-box-remove" data-mac="' + esc( b.mac ) + '" title="Remove from the list"><i class="bi bi-trash"></i></button></td>' +
             '</tr>';
         }).join( '' ) );
+    },
+
+    /**
+     * @description "1080P 60Hz · 94 %" text of a box's display, with a badge when it has its own setting
+     * @param {Object} d - display of a box from /boxes
+     * @returns {string} HTML
+     */
+    displayCell: function( d ){
+        var esc = Cms.escape;
+        if( !d || ( d.scale < 0 && !d.mode ) ){
+            return '<span class="text-body-secondary">-</span>';
+        }
+        var now  = ( d.mode ? esc( d.mode ) : '?' ) + ' · ' + ( d.scale >= 0 ? d.scale + ' %' : '?' );
+        var own  = d.override_scale !== null || d.override_mode !== null;
+        var wait = ( d.target.scale && d.target.scale !== d.scale ) || ( d.target.mode && d.target.mode !== d.mode );
+        return now +
+            ( own ? ' <span class="badge text-bg-light border" title="This box has its own screen size / resolution">own</span>' : '' ) +
+            ( wait ? ' <span class="badge text-bg-warning" title="Changes to ' + esc( ( d.target.mode || d.mode ) + ' · ' + ( d.target.scale || d.scale ) + ' %' ) + ' at its next check-in">pending</span>' : '' );
+    },
+
+    /**
+     * @description Opens the dialog for one box's own screen size / resolution
+     * @param {string} mac - Box MAC
+     * @returns {void}
+     */
+    openBoxDisplay: function( mac ){
+        var b = Cms.boxes.find( function( x ){ return x.mac === mac; } );
+        if( !b ){
+            return;
+        }
+        var d = b.display;
+        Cms.displayMac = mac;
+        $( '#box_display_name' ).text( b.box_name || mac );
+        $( '#box_display_now' ).text( 'Now: ' + ( d.mode || 'resolution unknown' ) + ' · ' + ( d.scale >= 0 ? d.scale + ' %' : 'size unknown' ) );
+        var $s = $( '#select_box_scale' ).empty().append( $( '<option value="">' ).text( 'Hotel setting' ) );
+        for( var i = 100; i >= 80; i-- ){
+            $s.append( $( '<option>' ).val( i ).text( i + ' %' ) );
+        }
+        $s.val( d.override_scale === null ? '' : String( d.override_scale ) );
+        var $m = $( '#select_box_mode' ).empty().append( $( '<option value="">' ).text( 'Hotel setting' ) );
+        d.modes.forEach( function( m ){ $m.append( $( '<option>' ).val( m ).text( m ) ); } );
+        if( d.override_mode && d.modes.indexOf( d.override_mode ) < 0 ){
+            $m.append( $( '<option>' ).val( d.override_mode ).text( d.override_mode ) );
+        }
+        $m.val( d.override_mode || '' ).prop( 'disabled', !d.modes.length && !d.override_mode );
+        bootstrap.Modal.getOrCreateInstance( '#modal_box_display' ).show();
+    },
+
+    /**
+     * @description Saves one box's own screen size / resolution
+     * @param {jQuery} $b - Save button
+     * @returns {void}
+     */
+    saveBoxDisplay: function( $b ){
+        var scale = $( '#select_box_scale' ).val();
+        var mode  = $( '#select_box_mode' ).val();
+        Cms.busy( $b, true );
+        Cms.api( 'PUT', 'boxes/' + encodeURIComponent( Cms.displayMac ) + '/display', { scale: scale === '' ? null : +scale, mode: mode || null } ).done( function(){
+            bootstrap.Modal.getOrCreateInstance( '#modal_box_display' ).hide();
+            Cms.toast( 'Saved. The box applies it within 5 minutes.', 'success' );
+            Cms.loadBoxes();
+        }).fail( Cms.toastError ).always( function(){ Cms.busy( $b, false ); } );
     },
 
     /**
@@ -646,6 +720,43 @@ var Cms = {
             Cms.toast( a.apk.package + ' ' + a.apk.version_name + ' uploaded. Boxes install it at their next check-in.', 'success' );
             $( '#input_apk' ).val( '' );
             Cms.loadApks();
+        }).fail( Cms.toastError ).always( function(){ Cms.busy( $b, false ); } );
+    },
+
+    // ==================== Display ====================
+
+    /**
+     * @description Loads the hotel's screen size / resolution and the resolutions the boxes report
+     * @returns {void}
+     */
+    loadDisplay: function(){
+        Cms.api( 'GET', 'display' ).done( function( a ){
+            $( a.scale ? '#radio_scale_set' : '#radio_scale_keep' ).prop( 'checked', true );
+            $( '#range_scale' ).val( a.scale || 94 ).prop( 'disabled', !a.scale ).trigger( 'input' );
+            var $m = $( '#select_display_mode' ).empty().append( $( '<option value="">' ).text( "Don't change (each box keeps its own)" ) );
+            a.modes.forEach( function( m ){
+                $m.append( $( '<option>' ).val( m.mode ).text( m.mode + ( m.boxes < a.reporting ? '  (' + m.boxes + ' of ' + a.reporting + ' boxes support it)' : '' ) ) );
+            });
+            if( a.mode && !a.modes.some( function( m ){ return m.mode === a.mode; } ) ){
+                $m.append( $( '<option>' ).val( a.mode ).text( a.mode + '  (no box reports it)' ) );
+            }
+            $m.val( a.mode || '' );
+            $( '#display_modes_info' ).text( a.reporting
+                ? 'The list shows what the TVs of ' + a.reporting + ' of ' + a.boxes + ' boxes report. A box whose TV does not support the chosen resolution keeps its own.'
+                : 'No box has reported its resolutions yet (launcher 1.0.2 or newer reports them at its next check-in).' );
+        }).fail( Cms.toastError );
+    },
+
+    /**
+     * @description Saves the hotel's screen size / resolution
+     * @param {jQuery} $b - Save button
+     * @returns {void}
+     */
+    saveDisplay: function( $b ){
+        var scale = $( '#radio_scale_set' ).is( ':checked' ) ? +$( '#range_scale' ).val() : null;
+        Cms.busy( $b, true );
+        Cms.api( 'PUT', 'display', { scale: scale, mode: $( '#select_display_mode' ).val() || null } ).done( function(){
+            Cms.toast( 'Saved. Boxes apply it within 5 minutes (boxes with their own setting keep theirs).', 'success' );
         }).fail( Cms.toastError ).always( function(){ Cms.busy( $b, false ); } );
     },
 

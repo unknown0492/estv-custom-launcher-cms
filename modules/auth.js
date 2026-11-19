@@ -15,13 +15,10 @@ const logger = require( './logger' );
 const eslink = require( './eslink' );
 const { db, setting, setSetting } = require( './db' );
 
-/* Failed sign-ins per remote address: 5 in 15 minutes locks that address for 15 minutes */
-const FAIL_LIMIT  = 5;
-const FAIL_WINDOW = 15 * 60 * 1000;
+/* Failed sign-ins per remote address: 10 within 5 minutes lock that address until the oldest is 5 minutes old */
+const FAIL_LIMIT  = 10;
+const FAIL_WINDOW = 5 * 60 * 1000;
 const failures    = new Map();          // ip -> [ timestamps ]
-
-/* Tokens of people who signed in but still have to choose the property (first set-up), kept 10 minutes */
-const pendingSetups = new Map();        // setupId -> { token, user_id, created }
 
 const insertSession = db.prepare( 'INSERT INTO sessions ( id, user_id, name, role_name, created_on, last_seen ) VALUES ( ?, ?, ?, ?, ?, ? )' );
 const findSession   = db.prepare( 'SELECT * FROM sessions WHERE id = ?' );
@@ -52,15 +49,15 @@ function lanIp() {
 }
 
 /**
- * @description Whether an address is locked out after too many failed sign-ins
+ * @description Minutes an address still has to wait after too many failed sign-ins
  * @param {string} ip - Remote address
- * @returns {boolean}
+ * @returns {number} 0 when it may sign in
  */
-function isLocked( ip ) {
+function lockedMinutes( ip ) {
     const now  = Date.now();
     const list = ( failures.get( ip ) || [] ).filter( ( t ) => now - t < FAIL_WINDOW );
     failures.set( ip, list );
-    return list.length >= FAIL_LIMIT;
+    return list.length >= FAIL_LIMIT ? Math.max( 1, Math.ceil( ( list[ 0 ] + FAIL_WINDOW - now ) / 60000 ) ) : 0;
 }
 
 /**
@@ -72,6 +69,39 @@ function addFailure( ip ) {
     const list = failures.get( ip ) || [];
     list.push( Date.now() );
     failures.set( ip, list );
+}
+
+/**
+ * @description Checks the lock-out and the typed user ID / password, then signs the person in to eslink.
+ *              Answers the request itself when something is wrong.
+ * @param {object} req - Express request
+ * @param {object} res - Express response
+ * @returns {Promise<object|null>} { token, userId, ip }, or null when the request was already answered
+ */
+async function eslinkSignIn( req, res ) {
+    const ip       = req.socket.remoteAddress || '';
+    const userId   = String( ( req.body && req.body.user_id ) || '' ).trim();
+    const password = String( ( req.body && req.body.password ) || '' );
+
+    const wait = lockedMinutes( ip );
+    if ( wait > 0 ) {
+        res.status( 429 ).json( { ok: false, error: 'Too many failed sign-ins. Please try again in ' + wait + ( wait > 1 ? ' minutes.' : ' minute.' ) } );
+        return null;
+    }
+    if ( !userId || !password ) {
+        res.status( 400 ).json( { ok: false, error: 'Enter your eslink user ID and password' } );
+        return null;
+    }
+    try {
+        return { token: await eslink.userSignIn( userId, password ), userId: userId, ip: ip };
+    } catch ( err ) {
+        if ( !err.unreachable ) {
+            addFailure( ip );
+        }
+        logger.warn( 'Sign-in refused for "' + userId.slice( 0, 50 ) + '" from ' + ip + ': ' + err.message );
+        res.status( err.unreachable ? 503 : 401 ).json( { ok: false, error: err.message } );
+        return null;
+    }
 }
 
 /**
@@ -123,71 +153,43 @@ function requireUser( req, res, next ) {
 
 /**
  * @description POST /admin/api/sign-in { user_id, password }. Already set up: signs in for the property.
- *              Not set up yet: answers { needs_setup, setup_id, properties } for the property choice.
+ *              Not set up yet: answers { needs_setup, properties } for the property choice; the page then sends
+ *              the same user ID / password again with the property to /setup. Nothing is kept on the CMS in
+ *              between, so a restart of the CMS cannot break the set-up.
  * @param {object} req - Express request
  * @param {object} res - Express response
  * @returns {Promise<void>}
  */
 async function signIn( req, res ) {
-    const ip       = req.socket.remoteAddress || '';
-    const userId   = String( ( req.body && req.body.user_id ) || '' ).trim();
-    const password = String( ( req.body && req.body.password ) || '' );
-
-    if ( isLocked( ip ) ) {
-        res.status( 429 ).json( { ok: false, error: 'Too many failed sign-ins. Please wait 15 minutes.' } );
+    const auth = await eslinkSignIn( req, res );
+    if ( !auth ) {
         return;
     }
-    if ( !userId || !password ) {
-        res.status( 400 ).json( { ok: false, error: 'Enter your eslink user ID and password' } );
-        return;
-    }
-
-    let token;
-    try {
-        token = await eslink.userSignIn( userId, password );
-    } catch ( err ) {
-        if ( !err.unreachable ) {
-            addFailure( ip );
-        }
-        res.status( err.unreachable ? 503 : 401 ).json( { ok: false, error: err.message } );
-        return;
-    }
-
     const propertyId = setting( 'property_id' );
     try {
         if ( !propertyId ) {
-            const properties = await eslink.listProperties( token );
-            const setupId    = crypto.randomBytes( 24 ).toString( 'hex' );
-            pendingSetups.set( setupId, { token: token, user_id: userId, created: Date.now() } );
-            res.json( { ok: true, needs_setup: true, setup_id: setupId, properties: properties } );
+            res.json( { ok: true, needs_setup: true, properties: await eslink.listProperties( auth.token ) } );
             return;
         }
-        const info = await eslink.cmsSignIn( token, propertyId, lanIp() );
+        const info = await eslink.cmsSignIn( auth.token, propertyId, lanIp() );
         setSetting( 'property_name', info.property_name );
         startSession( res, info.user );
-        logger.info( 'Signed in: ' + info.user.user_id + ' from ' + ip );
+        logger.info( 'Signed in: ' + info.user.user_id + ' from ' + auth.ip );
         res.json( { ok: true, user: info.user } );
     } catch ( err ) {
+        logger.warn( 'Sign-in of ' + auth.userId + ' refused by eslink: ' + err.message );
         res.status( err.unreachable ? 503 : 403 ).json( { ok: false, error: err.message } );
     }
 }
 
 /**
- * @description POST /admin/api/setup { setup_id, property_id }: first set-up, links this CMS to a property
+ * @description POST /admin/api/setup { user_id, password, property_id }: first set-up, links this CMS to a property
  * @param {object} req - Express request
  * @param {object} res - Express response
  * @returns {Promise<void>}
  */
 async function setup( req, res ) {
-    const setupId    = String( ( req.body && req.body.setup_id ) || '' );
     const propertyId = String( ( req.body && req.body.property_id ) || '' );
-    const pending    = pendingSetups.get( setupId );
-
-    if ( !pending || Date.now() - pending.created > 10 * 60 * 1000 ) {
-        pendingSetups.delete( setupId );
-        res.status( 401 ).json( { ok: false, error: 'Please sign in again', signed_out: true } );
-        return;
-    }
     if ( setting( 'property_id' ) ) {
         res.status( 409 ).json( { ok: false, error: 'This CMS is already set up. Sign in again.' } );
         return;
@@ -196,15 +198,19 @@ async function setup( req, res ) {
         res.status( 400 ).json( { ok: false, error: 'Choose a property' } );
         return;
     }
+    const auth = await eslinkSignIn( req, res );
+    if ( !auth ) {
+        return;
+    }
     try {
-        const info = await eslink.cmsSignIn( pending.token, propertyId, lanIp() );
-        pendingSetups.delete( setupId );
+        const info = await eslink.cmsSignIn( auth.token, propertyId, lanIp() );
         setSetting( 'property_id', info.property_id );
         setSetting( 'property_name', info.property_name );
         startSession( res, info.user );
         logger.info( 'Set up for ' + info.property_name + ' (' + info.property_id + ') by ' + info.user.user_id );
         res.json( { ok: true, user: info.user, property_id: info.property_id, property_name: info.property_name } );
     } catch ( err ) {
+        logger.warn( 'Set-up by ' + auth.userId + ' refused by eslink: ' + err.message );
         res.status( err.unreachable ? 503 : 403 ).json( { ok: false, error: err.message } );
     }
 }
@@ -234,11 +240,9 @@ function resetSetup() {
     db.prepare( 'DELETE FROM sessions' ).run();
 }
 
-// Old sessions and set-ups are removed every hour
+// Old sessions are removed every hour
 setInterval( function() {
     pruneSessions.run( Date.now() - config.session.idleMs );
-    const now = Date.now();
-    pendingSetups.forEach( ( v, k ) => { if ( now - v.created > 10 * 60 * 1000 ) { pendingSetups.delete( k ); } } );
 }, 3600000 ).unref();
 
 module.exports = { requireUser, signIn, setup, signOut, resetSetup, lanIp };

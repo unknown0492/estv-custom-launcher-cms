@@ -17,6 +17,7 @@ const DATA = fs.mkdtempSync( path.join( os.tmpdir(), 'cms-test-' ) );
 const PORT = 4900 + Math.floor( Math.random() * 90 );
 const BASE = 'http://127.0.0.1:' + PORT;
 const COOKIE = 'cms_session=test-session';
+const FAKE_PORT = PORT + 1000;            // Stand-in for eslink.online's webservice.php
 
 let failed = 0;
 let count  = 0;
@@ -95,7 +96,34 @@ async function waitUp() {
     throw new Error( 'The server did not start' );
 }
 
+/**
+ * @description Stand-in for eslink's webservice.php: password "right" signs in; answers the two Custom Launcher calls
+ * @returns {http.Server}
+ */
+function fakeEslink() {
+    return require( 'http' ).createServer( function( req, res ) {
+        let b = '';
+        req.on( 'data', ( d ) => { b += d; } ).on( 'end', function() {
+            const p = Object.fromEntries( new URLSearchParams( b ) );
+            let out;
+            if ( p.what_do_you_want === 'scodezy_login' ) {
+                out = p.password === 'right' ? { type: 'success', info: { xAwBo5Re9a: 'tok' } } : { type: 'error', info: 'Invalid username/password' };
+            } else if ( p.what_do_you_want === 'eslink_custom_launcher_cms_properties' ) {
+                out = { type: 'success', info: [ { property_id: '1112268135', property_name: 'VM Hotel', cms_host: '', cms_port: 4053 } ] };
+            } else if ( p.what_do_you_want === 'eslink_custom_launcher_cms_sign_in' ) {
+                out = { type: 'success', info: { user: { user_id: p.xAwBo5Re9a ? 'admin' : '', name: 'Admin', role_name: 'Administrator' },
+                                                 property_id: p.property_id, property_name: p.property_id === '1112268135' ? 'VM Hotel' : 'Test Hotel' } };
+            } else {
+                out = { type: 'error', info: 'unknown' };
+            }
+            res.setHeader( 'Content-Type', 'application/json' );
+            res.end( JSON.stringify( [ out ] ) );
+        } );
+    } ).listen( FAKE_PORT );
+}
+
 ( async function main() {
+    const fake = fakeEslink();
     // Database with a test session and a property, before the server opens it
     process.env.CMS_DATA_DIR = DATA;
     const { db, setSetting } = require( '../modules/db' );
@@ -106,7 +134,7 @@ async function waitUp() {
 
     const server = spawn( process.execPath, [ 'server.js' ], {
         cwd: path.join( __dirname, '..' ),
-        env: Object.assign( {}, process.env, { CMS_PORT: String( PORT ), CMS_DATA_DIR: DATA, ESLINK_API_URL: 'http://127.0.0.1:9/' } ),
+        env: Object.assign( {}, process.env, { CMS_PORT: String( PORT ), CMS_DATA_DIR: DATA, ESLINK_API_URL: 'http://127.0.0.1:' + FAKE_PORT + '/' } ),
         stdio: 'ignore'
     } );
 
@@ -132,8 +160,10 @@ async function waitUp() {
         // ---------- Sign-in protection ----------
         r = await call( 'GET', '/admin/api/boxes', undefined, false );
         check( 'web API needs a session', r.status === 401, r.status );
-        r = await call( 'POST', '/admin/api/sign-in', { user_id: 'x', password: 'y' }, false );
-        check( 'sign-in with eslink unreachable answers 503', r.status === 503, r.json );
+        r = await call( 'POST', '/admin/api/sign-in', { user_id: 'admin', password: 'wrong' }, false );
+        check( 'a wrong password shows eslink\'s message', r.status === 401 && r.json.error === 'Invalid username/password', r.json );
+        r = await call( 'POST', '/admin/api/sign-in', { user_id: 'admin', password: 'right' }, false );
+        check( 'sign-in for the property answers the eslink user', r.json && r.json.ok && r.json.user.user_id === 'admin', r.json );
 
         // ---------- Wallpaper ----------
         let fd = new FormData();
@@ -186,7 +216,10 @@ async function waitUp() {
             r = await call( 'GET', '/admin/api/apks' );
             const row = r.json.apks[ 0 ].boxes.find( ( b ) => b.mac === MAC );
             check( 'a failed install shows on the APK page', row && row.state === 'failed' && row.message === 'INSTALL_FAILED_TEST', row );
-            await call( 'POST', '/api/box/checkin', { mac: MAC, apps: [ { package: pkg, version_code: offer.version_code, version_name: offer.version_name } ] }, false );
+            // The launcher reports its own version in "launcher", any other app in "apps"
+            const now = { version_code: offer.version_code, version_name: offer.version_name };
+            await call( 'POST', '/api/box/checkin', pkg === 'com.excel.estvlauncher.custom'
+                        ? { mac: MAC, launcher: now } : { mac: MAC, apps: [ Object.assign( { package: pkg }, now ) ] }, false );
             r = await call( 'GET', '/admin/api/apks' );
             check( 'the box reporting the new version counts as updated', r.json.apks[ 0 ].done === 2 - 1 && r.json.apks[ 0 ].boxes.find( ( b ) => b.mac === MAC ).state === 'up_to_date', r.json.apks[ 0 ] );
             r = await call( 'PATCH', '/admin/api/apks/' + offer.apk_id, { active: false } );
@@ -200,11 +233,35 @@ async function waitUp() {
         r = await call( 'DELETE', '/admin/api/boxes/' + encodeURIComponent( MAC ) );
         r = await call( 'GET', '/admin/api/boxes' );
         check( 'a removed box is gone', !r.json.boxes.some( ( b ) => b.mac === MAC ), r.json.boxes );
+        // ---------- First set-up (stateless: the page sends the user ID / password again with the property) ----------
+        r = await call( 'POST', '/admin/api/settings/change-property' );
+        check( 'change property forgets the property', r.json && r.json.ok, r.json );
+        r = await call( 'POST', '/admin/api/sign-in', { user_id: 'admin', password: 'right' }, false );
+        check( 'sign-in on a new CMS lists the properties', r.json && r.json.needs_setup && r.json.properties.length === 1, r.json );
+        r = await call( 'POST', '/admin/api/setup', { user_id: 'admin', password: 'wrong', property_id: '1112268135' }, false );
+        check( 'set-up with a wrong password is refused', r.status === 401, r.json );
+        r = await call( 'POST', '/admin/api/setup', { user_id: 'admin', password: 'right', property_id: 'abc' }, false );
+        check( 'set-up with a bad property ID is refused', r.status === 400, r.json );
+        r = await call( 'POST', '/admin/api/setup', { user_id: 'admin', password: 'right', property_id: '1112268135' }, false );
+        check( 'set-up links the CMS to the property', r.json && r.json.ok && r.json.property_name === 'VM Hotel', r.json );
+        r = await call( 'GET', '/admin/api/state', undefined, false );
+        check( 'the CMS is now set up for that property', r.json.set_up === true && r.json.property_name === 'VM Hotel', r.json );
+        r = await call( 'POST', '/admin/api/setup', { user_id: 'admin', password: 'right', property_id: '1112268135' }, false );
+        check( 'a second set-up is refused', r.status === 409, r.json );
+
+        // ---------- Lock-out ----------
+        for ( let i = 0; i < 9; i++ ) {
+            await call( 'POST', '/admin/api/sign-in', { user_id: 'admin', password: 'wrong' }, false );
+        }
+        r = await call( 'POST', '/admin/api/sign-in', { user_id: 'admin', password: 'right' }, false );
+        check( '10 failed sign-ins lock the address, with the minutes to wait', r.status === 429 && /in \d+ minute/.test( r.json.error ), r.json );
+
     } catch ( err ) {
         failed++;
         console.log( 'FAIL ' + err.stack );
     } finally {
         server.kill();
+        fake.close();
         await new Promise( ( r ) => setTimeout( r, 300 ) );
         fs.rmSync( DATA, { recursive: true, force: true } );
     }

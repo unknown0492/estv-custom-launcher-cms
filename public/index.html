@@ -33,36 +33,19 @@
                     <label class="form-label" for="input_password">Password</label>
                     <input type="password" class="form-control" id="input_password" autocomplete="current-password" required>
                 </div>
+                <!-- First sign-in on a new CMS: the hotel is chosen in this same form (a second page would make
+                     Chrome show its "Save password?" prompt, which swallows the next click) -->
+                <div class="mb-4 d-none" id="block_setup_property">
+                    <label class="form-label" for="select_setup_property">Hotel (eslink property)</label>
+                    <select class="form-select" id="select_setup_property"></select>
+                    <div class="form-text">This CMS is new. Choose its hotel; the boxes get this property ID.</div>
+                </div>
                 <div class="alert alert-danger py-2 small d-none" id="sign_in_error"></div>
                 <button type="submit" class="btn btn-primary w-100" id="btn_sign_in">
-                    <span class="spinner-border spinner-border-sm me-2 d-none"></span>Sign in
+                    <span class="spinner-border spinner-border-sm me-2 d-none"></span><span id="btn_sign_in_label">Sign in</span>
                 </button>
             </form>
             <div class="text-center text-body-secondary small mt-4" id="sign_in_version"></div>
-        </div>
-    </div>
-</div>
-
-<!-- ===================== First set-up: choose the property ===================== -->
-<div class="cms-auth d-none" id="view_setup">
-    <div class="card cms-auth-card shadow-sm">
-        <div class="card-body p-4 p-md-5">
-            <div class="text-center mb-4">
-                <div class="cms-logo mb-3"><i class="bi bi-building"></i></div>
-                <h1 class="h4 mb-1">Which hotel is this?</h1>
-                <div class="text-body-secondary small">Choose the eslink property this CMS belongs to. Its boxes will get this property ID.</div>
-            </div>
-            <form id="form_setup" novalidate>
-                <div class="mb-4">
-                    <label class="form-label" for="select_setup_property">Property</label>
-                    <select class="form-select" id="select_setup_property" required></select>
-                </div>
-                <div class="alert alert-danger py-2 small d-none" id="setup_error"></div>
-                <button type="submit" class="btn btn-primary w-100" id="btn_setup">
-                    <span class="spinner-border spinner-border-sm me-2 d-none"></span>Use this property
-                </button>
-                <button type="button" class="btn btn-link w-100 mt-2" id="btn_setup_cancel">Back to sign-in</button>
-            </form>
         </div>
     </div>
 </div>

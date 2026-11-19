@@ -16,7 +16,7 @@ var Cms = {
     buttons: [],           // Home buttons being edited
     buttonsDirty: false,
     wallpaperUrl: '',      // For the buttons preview background
-    setupId: '',           // First set-up in progress
+    setupMode: false,      // First set-up: the sign-in form also shows the property choice
     refreshTimer: null,
 
     /**
@@ -75,8 +75,6 @@ var Cms = {
      */
     bind: function(){
         $( '#form_sign_in' ).on( 'submit', function( e ){ e.preventDefault(); Cms.signIn(); } );
-        $( '#form_setup' ).on( 'submit', function( e ){ e.preventDefault(); Cms.setup(); } );
-        $( '#btn_setup_cancel' ).on( 'click', function(){ Cms.showSignIn(); } );
         $( '#btn_sign_out' ).on( 'click', function(){
             Cms.api( 'POST', 'sign-out' ).always( function(){ Cms.showSignIn(); } );
         });
@@ -192,10 +190,11 @@ var Cms = {
      */
     showSignIn: function(){
         clearInterval( Cms.refreshTimer );
-        $( '#view_app, #view_setup' ).addClass( 'd-none' );
+        $( '#view_app' ).addClass( 'd-none' );
         $( '#view_sign_in' ).removeClass( 'd-none' );
         $( '#input_password' ).val( '' );
         $( '#sign_in_error' ).addClass( 'd-none' );
+        Cms.setSetupMode( false );
         Cms.api( 'GET', 'state' ).done( function( s ){
             $( '#sign_in_property' ).text( s.set_up ? s.property_name : 'Not set up yet - sign in with eslink to choose the hotel' );
             $( '#sign_in_version' ).text( 'Version ' + s.version );
@@ -209,7 +208,7 @@ var Cms = {
      * @returns {void}
      */
     showApp: function( info ){
-        $( '#view_sign_in, #view_setup' ).addClass( 'd-none' );
+        $( '#view_sign_in' ).addClass( 'd-none' );
         $( '#view_app' ).removeClass( 'd-none' );
         $( '#nav_user' ).text( info.user.name || info.user.user_id );
         $( '#nav_property' ).text( info.property_name || '' ).attr( 'title', info.property_name || '' );
@@ -223,32 +222,38 @@ var Cms = {
     },
 
     /**
-     * @description Signs in; a CMS that is not set up yet continues with the property choice
+     * @description Sign-in form submitted: signs in, or - on a new CMS once the property list is shown - links the
+     *              CMS to the chosen property (the user ID / password are sent again; the CMS keeps nothing between)
      * @returns {void}
      */
     signIn: function(){
-        var $b = $( '#btn_sign_in' );
+        var $b    = $( '#btn_sign_in' );
+        var creds = { user_id: $.trim( $( '#input_user_id' ).val() ), password: $( '#input_password' ).val() };
         $( '#sign_in_error' ).addClass( 'd-none' );
         Cms.busy( $b, true );
-        Cms.api( 'POST', 'sign-in', { user_id: $.trim( $( '#input_user_id' ).val() ), password: $( '#input_password' ).val() } ).done( function( a ){
-            $( '#input_password' ).val( '' );
+
+        var request = Cms.setupMode
+            ? Cms.api( 'POST', 'setup', $.extend( { property_id: $( '#select_setup_property' ).val() }, creds ) )
+            : Cms.api( 'POST', 'sign-in', creds );
+        request.done( function( a ){
             if( a.needs_setup ){
                 Cms.showSetup( a );
                 return;
             }
-            Cms.api( 'GET', 'me' ).done( Cms.showApp );
+            $( '#input_password' ).val( '' );
+            Cms.setSetupMode( false );
+            Cms.api( 'GET', 'me' ).done( Cms.showApp ).fail( Cms.toastError );
         }).fail( function( e ){
             $( '#sign_in_error' ).text( e ).removeClass( 'd-none' );
         }).always( function(){ Cms.busy( $b, false ); } );
     },
 
     /**
-     * @description Shows the property choice of the first set-up
-     * @param {Object} a - { setup_id, properties }
+     * @description Shows the property choice of the first set-up in the sign-in form
+     * @param {Object} a - { properties }
      * @returns {void}
      */
     showSetup: function( a ){
-        Cms.setupId = a.setup_id;
         var $s = $( '#select_setup_property' ).empty();
         if( !a.properties.length ){
             $s.append( $( '<option value="">' ).text( 'Your eslink account has no properties' ) );
@@ -256,23 +261,19 @@ var Cms = {
         a.properties.forEach( function( p ){
             $s.append( $( '<option>' ).val( p.property_id ).text( p.property_name + ' (' + p.property_id + ')' ) );
         });
-        $( '#setup_error' ).addClass( 'd-none' );
-        $( '#view_sign_in' ).addClass( 'd-none' );
-        $( '#view_setup' ).removeClass( 'd-none' );
+        Cms.setSetupMode( true );
+        $s.trigger( 'focus' );
     },
 
     /**
-     * @description Links this CMS to the chosen property
+     * @description Switches the sign-in form between "Sign in" and the first set-up ("Use this property")
+     * @param {boolean} on - Set-up mode
      * @returns {void}
      */
-    setup: function(){
-        var $b = $( '#btn_setup' );
-        Cms.busy( $b, true );
-        Cms.api( 'POST', 'setup', { setup_id: Cms.setupId, property_id: $( '#select_setup_property' ).val() } ).done( function(){
-            Cms.api( 'GET', 'me' ).done( Cms.showApp );
-        }).fail( function( e ){
-            $( '#setup_error' ).text( e ).removeClass( 'd-none' );
-        }).always( function(){ Cms.busy( $b, false ); } );
+    setSetupMode: function( on ){
+        Cms.setupMode = on;
+        $( '#block_setup_property' ).toggleClass( 'd-none', !on );
+        $( '#btn_sign_in_label' ).text( on ? 'Use this property' : 'Sign in' );
     },
 
     /**

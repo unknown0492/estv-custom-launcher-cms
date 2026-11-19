@@ -67,6 +67,7 @@
                     <li class="nav-item"><a class="nav-link" href="#wallpaper" data-page="wallpaper"><i class="bi bi-image me-1"></i>Wallpaper</a></li>
                     <li class="nav-item"><a class="nav-link" href="#buttons" data-page="buttons"><i class="bi bi-grid-3x2-gap me-1"></i>Home buttons</a></li>
                     <li class="nav-item"><a class="nav-link" href="#display" data-page="display"><i class="bi bi-aspect-ratio me-1"></i>Display</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#autostart" data-page="autostart"><i class="bi bi-play-circle me-1"></i>Auto-start</a></li>
                     <li class="nav-item"><a class="nav-link" href="#apks" data-page="apks"><i class="bi bi-box-seam me-1"></i>APK updates</a></li>
                     <li class="nav-item"><a class="nav-link" href="#settings" data-page="settings"><i class="bi bi-gear me-1"></i>Settings</a></li>
                 </ul>
@@ -112,6 +113,7 @@
                                 <th class="cms-sort" data-sort="launcher">Launcher</th>
                                 <th>Button apps</th>
                                 <th>Display</th>
+                                <th>Auto-start</th>
                                 <th>Updates</th>
                                 <th class="text-end"></th>
                             </tr>
@@ -244,6 +246,52 @@
             </div>
         </section>
 
+        <!-- ---------- Auto-start ---------- -->
+        <section class="cms-page d-none" id="page_autostart">
+            <div class="cms-page-head">
+                <div>
+                    <h2 class="h5 mb-1">Auto-start</h2>
+                    <div class="text-body-secondary small">The app every box opens by itself after start-up, and again when the home screen has been left alone. A box can have its own (Boxes page, <i class="bi bi-play-circle"></i> button) or be changed in its Secret Menu; the newest change wins.</div>
+                </div>
+                <button class="btn btn-sm btn-primary" id="btn_autostart_save">
+                    <span class="spinner-border spinner-border-sm me-2 d-none"></span><i class="bi bi-floppy me-1"></i>Save
+                </button>
+            </div>
+            <div class="row g-4">
+                <div class="col-lg-6">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h3 class="h6 mb-3">App</h3>
+                            <label class="form-label" for="select_autostart_app">Auto-start app of every box</label>
+                            <select class="form-select mb-3" id="select_autostart_app"></select>
+                            <div class="d-none" id="block_autostart_other">
+                                <label class="form-label" for="input_autostart_package">Package name</label>
+                                <input type="text" class="form-control cms-mono mb-3" id="input_autostart_package" maxlength="150" placeholder="com.example.app">
+                                <label class="form-label" for="input_autostart_activity">Start activity <span class="text-body-secondary">(empty = the app's own)</span></label>
+                                <input type="text" class="form-control cms-mono" id="input_autostart_activity" maxlength="200" placeholder=".MainActivity">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h3 class="h6 mb-3">Timing</h3>
+                            <div class="row g-3 align-items-center mb-3">
+                                <label class="col-sm-7 col-form-label" for="input_autostart_delay">Start this long after start-up (seconds)</label>
+                                <div class="col-sm-5"><input type="number" class="form-control" id="input_autostart_delay" min="0" max="120"></div>
+                            </div>
+                            <div class="row g-3 align-items-center">
+                                <label class="col-sm-7 col-form-label" for="input_autostart_relaunch">Open again after this long on the home screen (minutes, 0 = never)</label>
+                                <div class="col-sm-5"><input type="number" class="form-control" id="input_autostart_relaunch" min="0" max="1440"></div>
+                            </div>
+                            <div class="small text-body-secondary mt-3">The box shows a countdown first; any remote key cancels it. A key press on the home screen restarts the wait, and the Secret Menu pauses it.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <!-- ---------- APK updates ---------- -->
         <section class="cms-page d-none" id="page_apks">
             <div class="cms-page-head">
@@ -325,6 +373,35 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary" id="btn_box_display_save">
+                    <span class="spinner-border spinner-border-sm me-2 d-none"></span>Save
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- One box's own auto-start app -->
+<div class="modal fade" id="modal_box_autostart" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Auto-start of <span id="box_autostart_name"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="small text-body-secondary mb-3" id="box_autostart_now"></div>
+                <label class="form-label" for="select_box_autostart">Auto-start app</label>
+                <select class="form-select mb-3" id="select_box_autostart"></select>
+                <div class="d-none" id="block_box_autostart_other">
+                    <label class="form-label" for="input_box_autostart_package">Package name</label>
+                    <input type="text" class="form-control cms-mono mb-3" id="input_box_autostart_package" maxlength="150" placeholder="com.example.app">
+                    <label class="form-label" for="input_box_autostart_activity">Start activity <span class="text-body-secondary">(empty = the app's own)</span></label>
+                    <input type="text" class="form-control cms-mono" id="input_box_autostart_activity" maxlength="200" placeholder=".MainActivity">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="btn_box_autostart_save">
                     <span class="spinner-border spinner-border-sm me-2 d-none"></span>Save
                 </button>
             </div>

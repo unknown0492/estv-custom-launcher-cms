@@ -10,7 +10,7 @@ const path    = require( 'path' );
 const express = require( 'express' );
 const config  = require( '../config/config' );
 const apk     = require( '../modules/apk' );
-const { db, setting, displayTarget } = require( '../modules/db' );
+const { db, setting, displayTarget, autostartTarget } = require( '../modules/db' );
 
 const router = express.Router();
 
@@ -32,6 +32,7 @@ const upsertResult = db.prepare( `
     ON CONFLICT( mac, apk_id ) DO UPDATE SET state = excluded.state, message = excluded.message, via = 'box', updated_on = excluded.updated_on` );
 const getBox      = db.prepare( 'SELECT * FROM boxes WHERE mac = ?' );
 const setDisplay  = db.prepare( 'UPDATE boxes SET display_scale = ?, display_mode = ?, display_modes = ? WHERE mac = ?' );
+const setAutostart = db.prepare( 'UPDATE boxes SET autostart_package = ?, autostart_activity = ?, autostart_source = ? WHERE mac = ?' );
 const apkExists   = db.prepare( 'SELECT 1 FROM apks WHERE id = ?' );
 const listButtons = db.prepare( 'SELECT name, package, activity FROM buttons ORDER BY sort, id' );
 // Newest active APK per package (highest version code, then newest upload)
@@ -114,6 +115,12 @@ router.post( '/checkin', express.json( { limit: '64kb' } ), function( req, res )
             setDisplay.run( Number.isInteger( scale ) && scale >= 0 && scale <= 100 ? scale : -1,
                             text( b.display.mode, 40 ), JSON.stringify( modes ), mac );
         }
+        // 1.0.4: the auto-start app the box uses now
+        if ( b.autostart && typeof b.autostart === 'object' ) {
+            const pkg = text( b.autostart.package, 150 );
+            setAutostart.run( PKG_RE.test( pkg ) ? pkg : '', text( b.autostart.activity, 200 ),
+                              b.autostart.source === 'local' ? 'local' : 'cms', mac );
+        }
     } )();
 
     const wallHash = setting( 'wallpaper_hash' );
@@ -126,6 +133,7 @@ router.post( '/checkin', express.json( { limit: '64kb' } ), function( req, res )
         wallpaper:     wallHash ? { hash: wallHash, url: '/api/box/wallpaper/' + wallHash } : null,
         buttons:       { rev: Number( setting( 'buttons_rev', '0' ) ), list: listButtons.all() },
         display:       displayTarget( getBox.get( mac ) ),
+        autostart:     autostartTarget( getBox.get( mac ) ),
         apks:          offeredApks.all().map( ( a ) => ( {
             apk_id:       a.id,
             package:      a.package,

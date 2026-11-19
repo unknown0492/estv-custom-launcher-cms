@@ -23,7 +23,8 @@ A new box starts with CMS host **172.19.0.3**, port 4053. The technician can cha
   "apk_results": [ { "apk_id": 4, "state": "installed", "message": "" } ],
   "firmware": "HGC.12June.v1.5",
   "android": "9",
-  "display": { "scale": 92, "mode": "1080P 60Hz", "modes": [ "720P 60Hz", "1080P 60Hz", "4K2K 60HZ" ] }
+  "display": { "scale": 92, "mode": "1080P 60Hz", "modes": [ "720P 60Hz", "1080P 60Hz", "4K2K 60HZ" ] },
+  "autostart": { "package": "com.optisigns.playe1", "activity": "", "source": "cms", "rev": "h2.b0" }
 }
 ```
 
@@ -52,6 +53,7 @@ Answer `200`:
   "wallpaper": { "hash": "<sha256 hex>", "url": "/api/box/wallpaper/<hash>" },
   "buttons": { "rev": 3, "list": [ { "name": "Movies", "package": "com.example.player", "activity": "" } ] },
   "display": { "scale": 94, "mode": "1080P 60Hz" },
+  "autostart": { "rev": "h2.b0", "package": "com.optisigns.playe1", "activity": "", "delay_sec": 10, "relaunch_min": 10 },
   "apks": [ { "apk_id": 4, "package": "com.excel.estvlauncher.custom", "version_code": 2, "version_name": "1.0.1",
               "sha256": "<hex>", "size": 4567890, "url": "/api/box/apk/4" } ]
 }
@@ -75,6 +77,17 @@ Answer `200`:
   the firmware's android.os.DisplayOutputManager (as esTVLauncher's "Adjust Screen Size" does). A box without
   that API sends no `display`.
 - Errors are a non-200 status or `{ "ok": false, "error": "..." }`.
+
+- `autostart` (CMS 1.0.4 / launcher 1.0.4) is the app this box opens by itself. `package` "" means none.
+  `rev` changes whenever the hotel setting or this box's own setting on the CMS changes. It works like the
+  buttons rev: when `rev` differs from the rev the box last applied, the box takes `package` / `activity` and
+  sets source `cms`. An app chosen in the Secret Menu (source `local`) stays until `rev` changes again (the
+  newest change wins). `delay_sec` (0-120) and `relaunch_min` (0 = never, up to 1440) always apply.
+  - At boot: `delay_sec` after start-up the box opens the app. The home screen shows a countdown, and any
+    remote key cancels it.
+  - Relaunch: when the home screen has been shown for `relaunch_min` minutes without a key press, the app
+    opens again after the same countdown. A key press restarts the wait; the Secret Menu pauses it.
+  - In the check-in the box reports what it uses now: `autostart { package, activity, source, rev }`.
 
 ## 2. Files
 

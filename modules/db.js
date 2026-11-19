@@ -102,7 +102,14 @@ const boxColumns = db.prepare( 'PRAGMA table_info( boxes )' ).all().map( ( c ) =
     [ 'display_mode',   "TEXT    NOT NULL DEFAULT ''" ],      // Reported resolution
     [ 'display_modes',  "TEXT    NOT NULL DEFAULT '[]'" ],    // Reported supported resolutions (JSON)
     [ 'override_scale', "INTEGER" ],                          // This box's own screen size, NULL = hotel setting
-    [ 'override_mode',  "TEXT" ]                              // This box's own resolution, NULL = hotel setting
+    [ 'override_mode',  "TEXT" ],                             // This box's own resolution, NULL = hotel setting
+    // 1.0.4: auto-start app - this box's own (NULL = hotel setting, '' = none) and what the box reports
+    [ 'override_autostart_package',  "TEXT" ],
+    [ 'override_autostart_activity', "TEXT" ],
+    [ 'autostart_box_rev',           "INTEGER NOT NULL DEFAULT 0" ],   // Raised on every change of the box's own setting
+    [ 'autostart_package',           "TEXT    NOT NULL DEFAULT ''" ],  // Reported: app the box auto-starts now
+    [ 'autostart_activity',          "TEXT    NOT NULL DEFAULT ''" ],
+    [ 'autostart_source',            "TEXT    NOT NULL DEFAULT ''" ]   // Reported: cms / local (Secret Menu)
 ].forEach( function( col ) {
     if ( boxColumns.indexOf( col[ 0 ] ) < 0 ) {
         db.exec( 'ALTER TABLE boxes ADD COLUMN ' + col[ 0 ] + ' ' + col[ 1 ] );
@@ -168,4 +175,26 @@ function displayTarget( box ) {
     };
 }
 
-module.exports = { db, setting, setSetting, bumpButtonsRev, displayTarget };
+/* Defaults of the auto-start timings */
+const AUTOSTART_DELAY_SEC    = 10;
+const AUTOSTART_RELAUNCH_MIN = 10;
+
+/**
+ * @description The auto-start app a box should have: its own setting, else the hotel's
+ * @param {object} box - boxes row (override_autostart_* / autostart_box_rev)
+ * @returns {object} { rev, package ('' = none), activity, delay_sec, relaunch_min }
+ */
+function autostartTarget( box ) {
+    const own   = box && box.override_autostart_package !== null && box.override_autostart_package !== undefined;
+    const delay = Number( setting( 'autostart_delay_sec', String( AUTOSTART_DELAY_SEC ) ) );
+    const every = Number( setting( 'autostart_relaunch_min', String( AUTOSTART_RELAUNCH_MIN ) ) );
+    return {
+        rev:          'h' + Number( setting( 'autostart_rev', '0' ) ) + '.b' + ( box ? Number( box.autostart_box_rev ) || 0 : 0 ),
+        package:      own ? box.override_autostart_package : setting( 'autostart_package' ),
+        activity:     own ? ( box.override_autostart_activity || '' ) : setting( 'autostart_activity' ),
+        delay_sec:    Number.isInteger( delay ) ? delay : AUTOSTART_DELAY_SEC,
+        relaunch_min: Number.isInteger( every ) ? every : AUTOSTART_RELAUNCH_MIN
+    };
+}
+
+module.exports = { db, setting, setSetting, bumpButtonsRev, displayTarget, autostartTarget, AUTOSTART_DELAY_SEC, AUTOSTART_RELAUNCH_MIN };

@@ -14,7 +14,7 @@ const logger  = require( '../modules/logger' );
 const auth    = require( '../modules/auth' );
 const apk     = require( '../modules/apk' );
 const adb     = require( '../modules/adb' );
-const { db, setting, setSetting, bumpButtonsRev, displayTarget } = require( '../modules/db' );
+const { db, setting, setSetting, bumpButtonsRev, displayTarget, autostartTarget, AUTOSTART_DELAY_SEC, AUTOSTART_RELAUNCH_MIN } = require( '../modules/db' );
 
 const router = express.Router();
 const json   = express.json( { limit: '64kb' } );
@@ -42,6 +42,26 @@ function readDisplay( body ) {
         return { ok: false, error: 'The resolution is not valid' };
     }
     return { ok: true, scale: scale, mode: mode };
+}
+
+/**
+ * @description Reads an auto-start app sent by the page
+ * @param {object} body - { package: '' (none) | name, activity: '' | name }
+ * @returns {object} { ok, error, package, activity }
+ */
+function readAutostartApp( body ) {
+    const pkg      = String( ( body && body.package ) || '' ).trim();
+    const activity = pkg ? String( ( body && body.activity ) || '' ).trim() : '';
+    if ( pkg && ( !PKG_RE.test( pkg ) || pkg.length > 150 ) ) {
+        return { ok: false, error: 'The package name is not valid (e.g. com.example.app)' };
+    }
+    if ( pkg === 'com.excel.estvlauncher.custom' ) {
+        return { ok: false, error: 'The launcher cannot auto-start itself' };
+    }
+    if ( activity && ( !ACTIVITY_RE.test( activity ) || activity.length > 200 ) ) {
+        return { ok: false, error: 'The activity is not valid (e.g. .MainActivity or com.example.app.MainActivity)' };
+    }
+    return { ok: true, package: pkg, activity: activity };
 }
 
 /**
@@ -188,6 +208,14 @@ router.get( '/boxes', function( req, res ) {
                 override_scale: b.override_scale,
                 override_mode:  b.override_mode,
                 target:         displayTarget( b )
+            },
+            autostart:      {
+                package:           b.autostart_package,
+                activity:          b.autostart_activity,
+                source:            b.autostart_source,
+                override_package:  b.override_autostart_package,
+                override_activity: b.override_autostart_activity,
+                target:            autostartTarget( b )
             }
         };
     } );
@@ -230,6 +258,81 @@ router.put( '/boxes/:mac/display', json, function( req, res ) {
     db.prepare( 'UPDATE boxes SET override_scale = ?, override_mode = ? WHERE mac = ?' ).run( d.scale, d.mode, mac );
     logger.info( 'Display of box ' + mac + ' set by ' + req.user.user_id + ': size ' + ( d.scale === null ? 'hotel' : d.scale + '%' )
                + ', resolution ' + ( d.mode === null ? 'hotel' : d.mode ) );
+    res.json( { ok: true } );
+} );
+
+/**
+ * @description PUT /boxes/:mac/autostart { use: 'hotel' | 'app', package, activity } - this box's own auto-start
+ *              app ('app' with an empty package = none). Raises the box's revision, so the box takes it even if
+ *              someone chose another app in its Secret Menu (the newest change wins).
+ */
+router.put( '/boxes/:mac/autostart', json, function( req, res ) {
+    const mac = String( req.params.mac || '' ).toUpperCase();
+    const box = MAC_RE.test( mac ) ? db.prepare( 'SELECT mac FROM boxes WHERE mac = ?' ).get( mac ) : null;
+    if ( !box ) {
+        res.status( 404 ).json( { ok: false, error: 'No such box' } );
+        return;
+    }
+    const useHotel = req.body && req.body.use === 'hotel';
+    const a = useHotel ? { ok: true, package: null, activity: null } : readAutostartApp( req.body );
+    if ( !a.ok ) {
+        res.status( 400 ).json( a );
+        return;
+    }
+    db.prepare( 'UPDATE boxes SET override_autostart_package = ?, override_autostart_activity = ?, autostart_box_rev = autostart_box_rev + 1 WHERE mac = ?' )
+      .run( a.package, a.activity, mac );
+    logger.info( 'Auto-start of box ' + mac + ' set by ' + req.user.user_id + ': ' + ( useHotel ? 'hotel setting' : ( a.package || 'none' ) ) );
+    res.json( { ok: true } );
+} );
+
+// ---------- Auto-start (hotel-wide) ----------
+
+/**
+ * @description GET /autostart - hotel auto-start app and timings, plus the home buttons (quick choices)
+ */
+router.get( '/autostart', function( req, res ) {
+    const t = autostartTarget( null );
+    res.json( {
+        ok:           true,
+        package:      t.package,
+        activity:     t.activity,
+        delay_sec:    t.delay_sec,
+        relaunch_min: t.relaunch_min,
+        buttons:      db.prepare( 'SELECT name, package, activity FROM buttons ORDER BY sort, id' ).all()
+    } );
+} );
+
+/**
+ * @description PUT /autostart { package, activity, delay_sec, relaunch_min } - hotel-wide. A changed app raises the
+ *              hotel revision (boxes take it even over an app chosen in their Secret Menu); timings always apply.
+ */
+router.put( '/autostart', json, function( req, res ) {
+    const a     = readAutostartApp( req.body );
+    const delay = Number( req.body && req.body.delay_sec );
+    const every = Number( req.body && req.body.relaunch_min );
+    if ( !a.ok ) {
+        res.status( 400 ).json( a );
+        return;
+    }
+    if ( !Number.isInteger( delay ) || delay < 0 || delay > 120 ) {
+        res.status( 400 ).json( { ok: false, error: 'The start delay must be from 0 to 120 seconds' } );
+        return;
+    }
+    if ( !Number.isInteger( every ) || every < 0 || every > 1440 ) {
+        res.status( 400 ).json( { ok: false, error: 'The relaunch time must be from 0 (never) to 1440 minutes' } );
+        return;
+    }
+    const changed = a.package !== setting( 'autostart_package' ) || a.activity !== setting( 'autostart_activity' );
+    db.transaction( function() {
+        setSetting( 'autostart_package', a.package );
+        setSetting( 'autostart_activity', a.activity );
+        setSetting( 'autostart_delay_sec', delay );
+        setSetting( 'autostart_relaunch_min', every );
+        if ( changed ) {
+            setSetting( 'autostart_rev', Number( setting( 'autostart_rev', '0' ) ) + 1 );
+        }
+    } )();
+    logger.info( 'Hotel auto-start set by ' + req.user.user_id + ': ' + ( a.package || 'none' ) + ', delay ' + delay + ' s, relaunch ' + every + ' min' );
     res.json( { ok: true } );
 } );
 

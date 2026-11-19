@@ -261,6 +261,41 @@ function fakeEslink() {
         r = await call( 'POST', '/api/box/checkin', { mac: DMAC }, false );
         check( 'clearing the box own setting goes back to the hotel one', r.json.display.scale === 90 && r.json.display.mode === '720P 60Hz', r.json.display );
 
+        // ---------- Auto-start (1.0.4) ----------
+        const AMAC = 'AA:BB:CC:00:00:04';
+        r = await call( 'POST', '/api/box/checkin', { mac: AMAC, autostart: { package: '', activity: '', source: 'cms', rev: '' } }, false );
+        check( 'no auto-start set: none, default timings 10 s / 10 min', r.json.autostart && r.json.autostart.package === ''
+               && r.json.autostart.delay_sec === 10 && r.json.autostart.relaunch_min === 10 && r.json.autostart.rev === 'h0.b0', r.json.autostart );
+        r = await call( 'PUT', '/admin/api/autostart', { package: 'bad', activity: '', delay_sec: 10, relaunch_min: 10 } );
+        check( 'a bad auto-start package is refused', r.status === 400, r.json );
+        r = await call( 'PUT', '/admin/api/autostart', { package: 'com.excel.estvlauncher.custom', activity: '', delay_sec: 10, relaunch_min: 10 } );
+        check( 'the launcher cannot auto-start itself', r.status === 400, r.json );
+        r = await call( 'PUT', '/admin/api/autostart', { package: 'com.example.signage', activity: '', delay_sec: 500, relaunch_min: 10 } );
+        check( 'a start delay over 120 s is refused', r.status === 400, r.json );
+        r = await call( 'PUT', '/admin/api/autostart', { package: 'com.example.signage', activity: '.Main', delay_sec: 15, relaunch_min: 30 } );
+        check( 'hotel auto-start saved', r.json && r.json.ok, r.json );
+        r = await call( 'POST', '/api/box/checkin', { mac: AMAC }, false );
+        const rev1 = r.json.autostart.rev;
+        check( 'the box gets the hotel auto-start with a new revision', r.json.autostart.package === 'com.example.signage'
+               && r.json.autostart.activity === '.Main' && r.json.autostart.delay_sec === 15 && r.json.autostart.relaunch_min === 30 && rev1 === 'h1.b0', r.json.autostart );
+        await call( 'PUT', '/admin/api/autostart', { package: 'com.example.signage', activity: '.Main', delay_sec: 5, relaunch_min: 0 } );
+        r = await call( 'POST', '/api/box/checkin', { mac: AMAC }, false );
+        check( 'changing only the timings keeps the revision (an app chosen on a box stays)', r.json.autostart.rev === rev1
+               && r.json.autostart.delay_sec === 5 && r.json.autostart.relaunch_min === 0, r.json.autostart );
+        r = await call( 'POST', '/api/box/checkin', { mac: AMAC, autostart: { package: 'com.example.tv', activity: '', source: 'local', rev: rev1 } }, false );
+        r = await call( 'GET', '/admin/api/boxes' );
+        let ab = r.json.boxes.find( ( b ) => b.mac === AMAC );
+        check( 'the Boxes page shows the app chosen in the Secret Menu', ab && ab.autostart.package === 'com.example.tv' && ab.autostart.source === 'local', ab && ab.autostart );
+        r = await call( 'PUT', '/admin/api/boxes/' + encodeURIComponent( AMAC ) + '/autostart', { use: 'app', package: 'com.example.tv2', activity: '' } );
+        r = await call( 'POST', '/api/box/checkin', { mac: AMAC }, false );
+        check( 'the box own app on the CMS wins, with a new revision', r.json.autostart.package === 'com.example.tv2' && r.json.autostart.rev === 'h1.b1', r.json.autostart );
+        await call( 'PUT', '/admin/api/boxes/' + encodeURIComponent( AMAC ) + '/autostart', { use: 'app', package: '', activity: '' } );
+        r = await call( 'POST', '/api/box/checkin', { mac: AMAC }, false );
+        check( 'a box can be set to no auto-start', r.json.autostart.package === '' && r.json.autostart.rev === 'h1.b2', r.json.autostart );
+        await call( 'PUT', '/admin/api/boxes/' + encodeURIComponent( AMAC ) + '/autostart', { use: 'hotel' } );
+        r = await call( 'POST', '/api/box/checkin', { mac: AMAC }, false );
+        check( 'back to the hotel auto-start', r.json.autostart.package === 'com.example.signage' && r.json.autostart.rev === 'h1.b3', r.json.autostart );
+
         // ---------- First set-up (stateless: the page sends the user ID / password again with the property) ----------
         r = await call( 'POST', '/admin/api/settings/change-property' );
         check( 'change property forgets the property', r.json && r.json.ok, r.json );

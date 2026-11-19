@@ -19,6 +19,8 @@ var Cms = {
     setupMode: false,      // First set-up: the sign-in form also shows the property choice
     refreshTimer: null,
     displayMac: '',        // Box whose own display is being edited
+    autostartMac: '',      // Box whose own auto-start app is being edited
+    autostartButtons: [],  // Home buttons, offered as quick auto-start choices
 
     /**
      * @description Starts the page: signed in -> app, else sign-in
@@ -105,6 +107,17 @@ var Cms = {
         $( '#btn_display_save' ).on( 'click', function(){ Cms.saveDisplay( $( this ) ); } );
         $( '#box_rows' ).on( 'click', '.cms-box-display', function(){ Cms.openBoxDisplay( $( this ).data( 'mac' ) ); } );
         $( '#btn_box_display_save' ).on( 'click', function(){ Cms.saveBoxDisplay( $( this ) ); } );
+
+        // Auto-start
+        $( '#select_autostart_app' ).on( 'change', function(){
+            $( '#block_autostart_other' ).toggleClass( 'd-none', $( this ).val() !== '@other' );
+        });
+        $( '#btn_autostart_save' ).on( 'click', function(){ Cms.saveAutostart( $( this ) ); } );
+        $( '#select_box_autostart' ).on( 'change', function(){
+            $( '#block_box_autostart_other' ).toggleClass( 'd-none', $( this ).val() !== '@other' );
+        });
+        $( '#box_rows' ).on( 'click', '.cms-box-autostart', function(){ Cms.openBoxAutostart( $( this ).data( 'mac' ) ); } );
+        $( '#btn_box_autostart_save' ).on( 'click', function(){ Cms.saveBoxAutostart( $( this ) ); } );
 
         // Wallpaper
         $( '#btn_wallpaper_upload' ).on( 'click', function(){ Cms.uploadWallpaper( $( this ) ); } );
@@ -292,7 +305,7 @@ var Cms = {
      * @returns {void}
      */
     go: function( page ){
-        if( [ 'boxes', 'wallpaper', 'buttons', 'display', 'apks', 'settings' ].indexOf( page ) < 0 ){
+        if( [ 'boxes', 'wallpaper', 'buttons', 'display', 'autostart', 'apks', 'settings' ].indexOf( page ) < 0 ){
             page = 'boxes';
         }
         if( Cms.page === 'buttons' && page !== 'buttons' && Cms.buttonsDirty && !window.confirm( 'Leave without saving the home buttons?' ) ){
@@ -307,7 +320,7 @@ var Cms = {
         $( '#page_' + page ).removeClass( 'd-none' );
         $( '#nav_pages .nav-link' ).removeClass( 'active' ).filter( '[data-page="' + page + '"]' ).addClass( 'active' );
         bootstrap.Collapse.getInstance( '#nav_main' ) && bootstrap.Collapse.getInstance( '#nav_main' ).hide();
-        ( { boxes: Cms.loadBoxes, wallpaper: Cms.loadWallpaper, buttons: Cms.loadButtons, display: Cms.loadDisplay, apks: Cms.loadApks, settings: Cms.loadSettings } )[ page ]();
+        ( { boxes: Cms.loadBoxes, wallpaper: Cms.loadWallpaper, buttons: Cms.loadButtons, display: Cms.loadDisplay, autostart: Cms.loadAutostart, apks: Cms.loadApks, settings: Cms.loadSettings } )[ page ]();
     },
 
     // ==================== Boxes ====================
@@ -317,6 +330,7 @@ var Cms = {
      * @returns {void}
      */
     loadBoxes: function(){
+        Cms.api( 'GET', 'autostart' ).done( function( s ){ Cms.autostartButtons = s.buttons; } );
         Cms.api( 'GET', 'boxes' ).done( function( a ){
             Cms.boxes   = a.boxes;
             Cms.boxMeta = { now: a.now, online: a.online_ms, late: a.late_ms };
@@ -375,7 +389,7 @@ var Cms = {
         $( '#count_pending' ).text( pending );
 
         if( !list.length ){
-            $( '#box_rows' ).html( '<tr><td colspan="9" class="text-center text-body-secondary py-5">' +
+            $( '#box_rows' ).html( '<tr><td colspan="10" class="text-center text-body-secondary py-5">' +
                 ( Cms.boxes.length ? 'No box matches the search.' : 'No box has checked in yet. Boxes appear here at their first check-in (CMS IP set in the launcher\'s Secret Menu).' ) + '</td></tr>' );
             return;
         }
@@ -401,8 +415,10 @@ var Cms = {
                 '<td>' + ( b.launcher ? esc( b.launcher ) : '-' ) + '</td>' +
                 '<td class="small">' + apps + '</td>' +
                 '<td class="small text-nowrap">' + Cms.displayCell( b.display ) + '</td>' +
+                '<td class="small">' + Cms.autostartCell( b.autostart ) + '</td>' +
                 '<td>' + upd + '</td>' +
-                '<td class="text-end text-nowrap"><button class="btn btn-sm btn-outline-secondary me-1 cms-box-display" data-mac="' + esc( b.mac ) + '" title="Screen size and resolution of this box"><i class="bi bi-aspect-ratio"></i></button>' +
+                '<td class="text-end text-nowrap"><button class="btn btn-sm btn-outline-secondary me-1 cms-box-autostart" data-mac="' + esc( b.mac ) + '" title="Auto-start app of this box"><i class="bi bi-play-circle"></i></button>' +
+                    '<button class="btn btn-sm btn-outline-secondary me-1 cms-box-display" data-mac="' + esc( b.mac ) + '" title="Screen size and resolution of this box"><i class="bi bi-aspect-ratio"></i></button>' +
                     '<button class="btn btn-sm btn-outline-danger cms-box-remove" data-mac="' + esc( b.mac ) + '" title="Remove from the list"><i class="bi bi-trash"></i></button></td>' +
             '</tr>';
         }).join( '' ) );
@@ -424,6 +440,132 @@ var Cms = {
         return now +
             ( own ? ' <span class="badge text-bg-light border" title="This box has its own screen size / resolution">own</span>' : '' ) +
             ( wait ? ' <span class="badge text-bg-warning" title="Changes to ' + esc( ( d.target.mode || d.mode ) + ' · ' + ( d.target.scale || d.scale ) + ' %' ) + ' at its next check-in">pending</span>' : '' );
+    },
+
+    /**
+     * @description A package shown by its home button's name when one matches, else the package itself
+     * @param {string} pkg - Package name
+     * @returns {string} Text (not escaped)
+     */
+    appName: function( pkg ){
+        var b = ( Cms.autostartButtons || [] ).find( function( x ){ return x.package === pkg; } );
+        return b ? b.name : pkg;
+    },
+
+    /**
+     * @description Auto-start cell of a box: the app it uses now, "set on box" / "own" badges, "pending" while the
+     *              box has not taken the CMS's app yet
+     * @param {Object} a - autostart of a box from /boxes
+     * @returns {string} HTML
+     */
+    autostartCell: function( a ){
+        var esc = Cms.escape;
+        if( !a ){
+            return '<span class="text-body-secondary">-</span>';
+        }
+        var now  = a.package ? '<span title="' + esc( a.package ) + '">' + esc( Cms.appName( a.package ) ) + '</span>' : '<span class="text-body-secondary">None</span>';
+        var wait = a.source !== 'local' && a.target.package !== a.package;
+        return now +
+            ( a.source === 'local' ? ' <span class="badge text-bg-light border" title="Chosen in the box\'s Secret Menu">set on box</span>' : '' ) +
+            ( a.override_package !== null ? ' <span class="badge text-bg-light border" title="This box has its own auto-start app on the CMS">own</span>' : '' ) +
+            ( wait ? ' <span class="badge text-bg-warning" title="Changes to ' + esc( a.target.package || 'none' ) + ' at its next check-in">pending</span>' : '' );
+    },
+
+    /**
+     * @description Fills an auto-start choice list: (hotel setting), none, the home buttons, other app
+     * @param {jQuery} $s - select
+     * @param {boolean} withHotel - Offer "Hotel setting" first (per-box dialog)
+     * @returns {void}
+     */
+    fillAutostartChoices: function( $s, withHotel ){
+        $s.empty();
+        if( withHotel ){
+            $s.append( $( '<option value="@hotel">' ).text( 'Hotel setting' ) );
+        }
+        $s.append( $( '<option value="">' ).text( 'None' ) );
+        Cms.autostartButtons.forEach( function( b, i ){
+            $s.append( $( '<option>' ).val( '@button' + i ).text( b.name + ' (' + b.package + ')' ) );
+        });
+        $s.append( $( '<option value="@other">' ).text( 'Other app...' ) );
+    },
+
+    /**
+     * @description Selects the choice matching a package / activity (a home button, none, or other)
+     * @param {jQuery} $s - select filled by fillAutostartChoices
+     * @param {string} pkg - Package ('' = none)
+     * @param {string} activity - Activity
+     * @param {jQuery} $pkg - "Other" package input
+     * @param {jQuery} $act - "Other" activity input
+     * @returns {void}
+     */
+    selectAutostartChoice: function( $s, pkg, activity, $pkg, $act ){
+        var i = Cms.autostartButtons.findIndex( function( b ){ return b.package === pkg && ( b.activity || '' ) === ( activity || '' ); } );
+        var v = !pkg ? '' : ( i >= 0 ? '@button' + i : '@other' );
+        $s.val( v ).trigger( 'change' );
+        $pkg.val( v === '@other' ? pkg : '' );
+        $act.val( v === '@other' ? ( activity || '' ) : '' );
+    },
+
+    /**
+     * @description Package / activity of an auto-start choice
+     * @param {string} v - select value
+     * @param {jQuery} $pkg - "Other" package input
+     * @param {jQuery} $act - "Other" activity input
+     * @returns {Object} { package, activity }
+     */
+    readAutostartChoice: function( v, $pkg, $act ){
+        if( v === '@other' ){
+            return { package: $.trim( $pkg.val() ), activity: $.trim( $act.val() ) };
+        }
+        if( v.indexOf( '@button' ) === 0 ){
+            var b = Cms.autostartButtons[ +v.slice( 7 ) ];
+            return { package: b.package, activity: b.activity || '' };
+        }
+        return { package: '', activity: '' };
+    },
+
+    /**
+     * @description Opens the dialog for one box's own auto-start app
+     * @param {string} mac - Box MAC
+     * @returns {void}
+     */
+    openBoxAutostart: function( mac ){
+        var box = Cms.boxes.find( function( x ){ return x.mac === mac; } );
+        if( !box ){
+            return;
+        }
+        var a = box.autostart;
+        Cms.autostartMac = mac;
+        Cms.api( 'GET', 'autostart' ).done( function( s ){
+            Cms.autostartButtons = s.buttons;
+            $( '#box_autostart_name' ).text( box.box_name || mac );
+            $( '#box_autostart_now' ).text( 'Now: ' + ( a.package ? Cms.appName( a.package ) : 'none' ) + ( a.source === 'local' ? ' (chosen in its Secret Menu)' : '' ) );
+            var $s = $( '#select_box_autostart' );
+            Cms.fillAutostartChoices( $s, true );
+            if( a.override_package === null ){
+                $s.val( '@hotel' ).trigger( 'change' );
+            }
+            else{
+                Cms.selectAutostartChoice( $s, a.override_package, a.override_activity, $( '#input_box_autostart_package' ), $( '#input_box_autostart_activity' ) );
+            }
+            bootstrap.Modal.getOrCreateInstance( '#modal_box_autostart' ).show();
+        }).fail( Cms.toastError );
+    },
+
+    /**
+     * @description Saves one box's own auto-start app
+     * @param {jQuery} $b - Save button
+     * @returns {void}
+     */
+    saveBoxAutostart: function( $b ){
+        var v    = $( '#select_box_autostart' ).val();
+        var body = v === '@hotel' ? { use: 'hotel' } : $.extend( { use: 'app' }, Cms.readAutostartChoice( v, $( '#input_box_autostart_package' ), $( '#input_box_autostart_activity' ) ) );
+        Cms.busy( $b, true );
+        Cms.api( 'PUT', 'boxes/' + encodeURIComponent( Cms.autostartMac ) + '/autostart', body ).done( function(){
+            bootstrap.Modal.getOrCreateInstance( '#modal_box_autostart' ).hide();
+            Cms.toast( 'Saved. The box takes it within 5 minutes.', 'success' );
+            Cms.loadBoxes();
+        }).fail( Cms.toastError ).always( function(){ Cms.busy( $b, false ); } );
     },
 
     /**
@@ -720,6 +862,39 @@ var Cms = {
             Cms.toast( a.apk.package + ' ' + a.apk.version_name + ' uploaded. Boxes install it at their next check-in.', 'success' );
             $( '#input_apk' ).val( '' );
             Cms.loadApks();
+        }).fail( Cms.toastError ).always( function(){ Cms.busy( $b, false ); } );
+    },
+
+    // ==================== Auto-start ====================
+
+    /**
+     * @description Loads the hotel's auto-start app and timings
+     * @returns {void}
+     */
+    loadAutostart: function(){
+        Cms.api( 'GET', 'autostart' ).done( function( a ){
+            Cms.autostartButtons = a.buttons;
+            var $s = $( '#select_autostart_app' );
+            Cms.fillAutostartChoices( $s, false );
+            Cms.selectAutostartChoice( $s, a.package, a.activity, $( '#input_autostart_package' ), $( '#input_autostart_activity' ) );
+            $( '#input_autostart_delay' ).val( a.delay_sec );
+            $( '#input_autostart_relaunch' ).val( a.relaunch_min );
+        }).fail( Cms.toastError );
+    },
+
+    /**
+     * @description Saves the hotel's auto-start app and timings
+     * @param {jQuery} $b - Save button
+     * @returns {void}
+     */
+    saveAutostart: function( $b ){
+        var app = Cms.readAutostartChoice( $( '#select_autostart_app' ).val(), $( '#input_autostart_package' ), $( '#input_autostart_activity' ) );
+        Cms.busy( $b, true );
+        Cms.api( 'PUT', 'autostart', $.extend( app, {
+            delay_sec:    +$( '#input_autostart_delay' ).val(),
+            relaunch_min: +$( '#input_autostart_relaunch' ).val()
+        } ) ).done( function(){
+            Cms.toast( 'Saved. Boxes take it within 5 minutes (boxes with their own app keep theirs).', 'success' );
         }).fail( Cms.toastError ).always( function(){ Cms.busy( $b, false ); } );
     },
 

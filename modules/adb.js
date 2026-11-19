@@ -1,23 +1,42 @@
 /**
  * Backup install over network ADB from this PC, for a box that cannot install an update itself.
- * Needs adb.exe (Android platform-tools) on this PC - in PATH or set on the Settings page - and network ADB
- * (port 5555) on the box. Commands run with execFile (no shell), so no value is ever parsed by a shell.
+ * Needs adb.exe (Android platform-tools) on this PC - install-cms.bat installs it with Chocolatey (1.0.3) - and
+ * network ADB (port 5555) on the box. Commands run with execFile (no shell), so no value is ever parsed by a shell.
  */
 
 'use strict';
 
 const fs           = require( 'fs' );
+const path         = require( 'path' );
 const { execFile } = require( 'child_process' );
 const config       = require( '../config/config' );
 const { setting }  = require( './db' );
 
 /**
- * @description adb executable: the path set on the Settings page, else "adb" from PATH
+ * @description Usual places of adb.exe on Windows. Looked at directly because PM2 keeps the PATH it had when it
+ *              started, so an adb installed afterwards (e.g. by install-cms.bat) is not on the CMS's PATH yet.
+ * @returns {Array<string>}
+ */
+function knownAdbPaths() {
+    const env = process.env;
+    return [
+        env.ProgramData  && path.join( env.ProgramData, 'chocolatey', 'bin', 'adb.exe' ),                               // Chocolatey shim
+        env.ProgramData  && path.join( env.ProgramData, 'chocolatey', 'lib', 'adb', 'tools', 'platform-tools', 'adb.exe' ),
+        env.LOCALAPPDATA && path.join( env.LOCALAPPDATA, 'Android', 'Sdk', 'platform-tools', 'adb.exe' ),               // Android Studio
+        'C:\\platform-tools\\adb.exe'
+    ].filter( Boolean );
+}
+
+/**
+ * @description adb executable: the path set on the Settings page, else a usual place, else "adb" from PATH
  * @returns {string}
  */
 function adbPath() {
     const custom = setting( 'adb_path' );
-    return custom && fs.existsSync( custom ) ? custom : 'adb';
+    if ( custom && fs.existsSync( custom ) ) {
+        return custom;
+    }
+    return knownAdbPaths().find( ( p ) => fs.existsSync( p ) ) || 'adb';
 }
 
 /**
@@ -40,12 +59,13 @@ function run( args, timeoutMs ) {
 }
 
 /**
- * @description adb version line, to show on the Settings page
+ * @description adb version line and the adb.exe used, to show on the Settings page
  * @returns {Promise<string>}
  */
 async function version() {
     const out = await run( [ 'version' ], 10000 );
-    return out.split( /\r?\n/ )[ 0 ];
+    const exe = adbPath();
+    return out.split( /\r?\n/ )[ 0 ] + ( exe === 'adb' ? '' : ' (' + exe + ')' );
 }
 
 /**

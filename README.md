@@ -28,7 +28,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command "[Net.ServicePointManager
 
 It downloads `installer\` (install-cms.bat and its helpers) and runs install-cms.bat as Administrator, which:
 
-1. installs Git and Node.js LTS if they're missing;
+1. installs Git, Node.js LTS and ADB (Android platform-tools, for "Install via ADB") if they're missing;
 2. installs the CMS from GitHub `main` into `<drive>:\estv-custom-launcher-cms` (or updates it there);
 3. sets up PM2 and its start with Windows;
 4. adds the firewall rule for TCP 4053 and the Desktop shortcuts;

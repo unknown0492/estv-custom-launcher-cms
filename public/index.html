@@ -289,8 +289,8 @@
                     <div class="card h-100">
                         <div class="card-body">
                             <h3 class="h6 mb-3">ADB (backup install)</h3>
-                            <p class="small text-body-secondary">Used only by "Install via ADB" on the APK updates page. Needs Android platform-tools on this PC and network ADB on the boxes.</p>
-                            <label class="form-label" for="input_adb_path">adb.exe path <span class="text-body-secondary">(empty = from PATH)</span></label>
+                            <p class="small text-body-secondary">Used only by "Install via ADB" on the APK updates page. The installer puts Android platform-tools on this PC; the boxes need network ADB.</p>
+                            <label class="form-label" for="input_adb_path">adb.exe path <span class="text-body-secondary">(empty = found automatically)</span></label>
                             <input type="text" class="form-control mb-2" id="input_adb_path" placeholder="C:\platform-tools\adb.exe">
                             <div class="small text-body-secondary mb-3" id="set_adb_version"></div>
                             <button class="btn btn-sm btn-primary" id="btn_adb_save"><i class="bi bi-floppy me-1"></i>Save</button>

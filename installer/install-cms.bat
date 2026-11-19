@@ -3,7 +3,7 @@
 :: ===========================================================================
 :: install-cms.bat - installs or updates the esTV Custom Launcher CMS on the hotel's CMS PC:
 ::   estv-custom-launcher-cms -> <drive>:\estv-custom-launcher-cms   (PM2 "estv-custom-launcher-cms", port 4053)
-:: Installs Git and Node.js when missing, PM2 with start at Windows startup, the Windows Firewall rule for
+:: Installs Git, Node.js and ADB when missing, PM2 with start at Windows startup, the Windows Firewall rule for
 :: port 4053 (boxes and the web page), the Desktop shortcuts, then opens the web page. The first person to
 :: sign in there with eslink chooses the hotel's property.
 :: Runs again safely: an installed CMS is brought to the newest version; data\ (boxes, wallpaper, APKs,
@@ -158,17 +158,18 @@ if %errorlevel% neq 0 (
 call :SUMMARY OK "Chocolatey available"
 
 :: ===================================
-:: 2. Git and Node.js LTS (installed when missing - asked first - or updated; see Ensure-Tool.ps1)
+:: 2. Git, Node.js LTS and ADB (installed when missing - asked first, Enter = yes - or updated; see
+::    Ensure-Tool.ps1). ADB (Android platform-tools) is used by "Install via ADB" on the APK updates page.
 :: ===================================
 echo.
-echo %C_STEP%[2/7] Checking Git and Node.js...%C_RESET%
-for %%T in (git nodejs-lts) do (
+echo %C_STEP%[2/7] Checking Git, Node.js and ADB...%C_RESET%
+for %%T in (git nodejs-lts adb) do (
     powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0Ensure-Tool.ps1" -Package %%T
     echo.
 )
 call refreshenv >nul 2>nul
 :: Makes freshly installed tools usable in this window
-set "PATH=%PATH%;%ProgramFiles%\Git\cmd;%ProgramFiles%\nodejs;%APPDATA%\npm"
+set "PATH=%PATH%;%ProgramFiles%\Git\cmd;%ProgramFiles%\nodejs;%APPDATA%\npm;%ProgramData%\chocolatey\bin"
 where git >nul 2>nul
 if %errorlevel% neq 0 (
     call :SUMMARY FAIL "Git is not available - setup stopped"
@@ -178,6 +179,11 @@ where node >nul 2>nul
 if %errorlevel% neq 0 (
     call :SUMMARY FAIL "Node.js is not available - setup stopped"
     goto FINISH
+)
+:: ADB is optional: the CMS works without it, only "Install via ADB" needs it
+where adb >nul 2>nul
+if %errorlevel% neq 0 (
+    call :SUMMARY WARN "ADB is not available - Install via ADB on the APK updates page will not work"
 )
 
 :: ===================================

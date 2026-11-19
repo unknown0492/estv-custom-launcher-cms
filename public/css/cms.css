@@ -1,0 +1,196 @@
+/* Custom Launcher CMS - Bootstrap 5 does most of it; only what it lacks is here */
+
+body {
+    background-color: var( --bs-tertiary-bg );
+    min-height: 100vh;
+}
+
+.cms-container {
+    max-width: 1400px;
+}
+
+/* ---------- Sign-in / set-up ---------- */
+.cms-auth {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+
+.cms-auth-card {
+    width: 100%;
+    max-width: 420px;
+}
+
+.cms-logo {
+    width: 56px;
+    height: 56px;
+    margin: 0 auto;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6rem;
+    color: var( --bs-primary );
+    background-color: var( --bs-primary-bg-subtle );
+}
+
+/* ---------- Pages ---------- */
+.cms-page-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.cms-search {
+    width: 240px;
+}
+
+.cms-file {
+    width: 280px;
+}
+
+.cms-nav-property {
+    max-width: 260px;
+}
+
+.cms-stat .card-body {
+    padding: 14px 16px;
+}
+
+.cms-stat-value {
+    font-size: 1.5rem;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.cms-stat-label {
+    font-size: .8rem;
+    color: var( --bs-secondary-color );
+}
+
+.cms-table th {
+    font-size: .8rem;
+    font-weight: 600;
+    color: var( --bs-secondary-color );
+    white-space: nowrap;
+}
+
+.cms-table td {
+    font-size: .875rem;
+}
+
+.cms-sort {
+    cursor: pointer;
+    user-select: none;
+}
+
+.cms-sort::after {
+    content: "\F283";                    /* bi-chevron-expand */
+    font-family: "bootstrap-icons";
+    font-size: .7rem;
+    margin-left: 4px;
+    opacity: .35;
+}
+
+.cms-sort.asc::after  { content: "\F286"; opacity: 1; }   /* bi-chevron-up */
+.cms-sort.desc::after { content: "\F282"; opacity: 1; }   /* bi-chevron-down */
+
+.cms-mono {
+    font-family: var( --bs-font-monospace );
+    font-size: .8rem;
+}
+
+.cms-dot {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
+}
+
+.cms-col-order {
+    width: 92px;
+}
+
+.cms-dl dt {
+    font-weight: 500;
+    color: var( --bs-secondary-color );
+}
+
+.cms-dl dd {
+    word-break: break-all;
+}
+
+/* ---------- Wallpaper ---------- */
+.cms-wallpaper-frame {
+    aspect-ratio: 16 / 9;
+    border-radius: 8px;
+    overflow: hidden;
+    background-color: var( --bs-secondary-bg );
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cms-wallpaper-frame img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.cms-wallpaper-empty {
+    text-align: center;
+    color: var( --bs-secondary-color );
+    font-size: .9rem;
+}
+
+/* ---------- Home buttons preview (a small TV) ---------- */
+.cms-home-preview {
+    aspect-ratio: 16 / 9;
+    max-width: 640px;
+    border-radius: 8px;
+    background: linear-gradient( 135deg, #1f3a5f, #0d1b2a );
+    background-size: cover;
+    background-position: center;
+    display: flex;
+    flex-wrap: wrap;
+    align-content: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 16px;
+}
+
+.cms-home-preview .cms-tv-button {
+    min-width: 96px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    text-align: center;
+    font-size: .8rem;
+    font-weight: 600;
+    color: #fff;
+    background-color: rgba( 0, 0, 0, .55 );
+    border: 2px solid rgba( 255, 255, 255, .35 );
+}
+
+.cms-home-preview .cms-tv-button.cms-tv-menu {
+    border-color: #fff;
+}
+
+/* ---------- APK cards ---------- */
+.cms-apk-boxes {
+    max-height: 360px;
+    overflow-y: auto;
+}
+
+@media ( max-width: 575.98px ) {
+    .cms-search,
+    .cms-file {
+        width: 100%;
+    }
+}

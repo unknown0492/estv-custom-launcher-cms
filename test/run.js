@@ -296,6 +296,12 @@ function fakeEslink() {
         r = await call( 'POST', '/api/box/checkin', { mac: AMAC }, false );
         check( 'back to the hotel auto-start', r.json.autostart.package === 'com.example.signage' && r.json.autostart.rev === 'h1.b3', r.json.autostart );
 
+        // ---------- Help (1.0.6) ----------
+        const help = await fetch( BASE + '/help' );
+        const helpText = await help.text();
+        check( 'the manual opens at /help without sign-in', help.status === 200 && /text\/html/.test( help.headers.get( 'content-type' ) || '' )
+               && helpText.includes( '<title>esTV Custom Launcher Manual</title>' ), help.status );
+
         // ---------- First set-up (stateless: the page sends the user ID / password again with the property) ----------
         r = await call( 'POST', '/admin/api/settings/change-property' );
         check( 'change property forgets the property', r.json && r.json.ok, r.json );

@@ -4,6 +4,7 @@
  *   /api/box/*     box check-in, wallpaper and APK downloads (docs/box-protocol.md)
  *   /admin/api/*   web page API (eslink sign-in)
  *   /              web page
+ *   /help          technician manual (docs/manual.html)
  *
  * Runs in PM2 ("estv-custom-launcher-cms"), started with Windows. Port 4053 (CMS_PORT on a development PC).
  */
@@ -37,6 +38,12 @@ app.use( '/vendor/bootstrap', express.static( path.join( nm, 'bootstrap', 'dist'
 app.use( '/vendor/bootstrap-icons', express.static( path.join( nm, 'bootstrap-icons', 'font' ), { maxAge: '7d' } ) );
 app.use( '/vendor/jquery', express.static( path.join( nm, 'jquery', 'dist' ), { maxAge: '7d' } ) );
 app.use( express.static( config.paths.public, { index: 'index.html', maxAge: 0 } ) );
+
+// Technician manual, served from this installation so it works without internet and matches this CMS version.
+// Open without sign-in: it holds no hotel data, and helps someone who cannot sign in yet.
+app.get( '/help', function( req, res ) {
+    res.sendFile( path.join( config.root, 'docs', 'manual.html' ), { maxAge: 0 } );
+} );
 
 app.use( function( req, res ) {
     res.status( 404 ).json( { ok: false, error: 'Not found' } );

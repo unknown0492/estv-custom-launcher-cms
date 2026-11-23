@@ -20,6 +20,9 @@ Windows PC on the hotel LAN, in PM2, and starts with Windows. It listens on port
   `scodezy_login`, `eslink_custom_launcher_cms_properties` and `eslink_custom_launcher_cms_sign_in`. A box that
   can't reach this PC asks eslink for its address (Other Products > Custom Launcher > CMS IP).
 
+The technician manual (description, installation and usage) is `docs/manual.html`, also published at
+https://files.estv.cloud/estv-custom-launcher-cms/manual.html.
+
 ## Install / update on the CMS PC
 
 In a normal cmd window:

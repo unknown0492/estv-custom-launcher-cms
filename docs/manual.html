@@ -1,0 +1,1085 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>esTV Custom Launcher Manual</title>
+<meta name="description" content="Description, installation and usage of the esTV Custom Launcher, its hotel CMS and the eslink CMS IP page.">
+<style>
+/* ---------- Theme tokens ---------- */
+:root {
+    --bg:        #f6f7f9;
+    --surface:   #ffffff;
+    --surface-2: #f0f2f5;
+    --text:      #1c2430;
+    --muted:     #5b6675;
+    --border:    #dde2e8;
+    --accent:    #0b6bcb;
+    --accent-bg: #e7f1fb;
+    --ok:        #1d7a46;
+    --ok-bg:     #e6f4ec;
+    --warn:      #8a5a00;
+    --warn-bg:   #fdf3dc;
+    --bad:       #b3261e;
+    --bad-bg:    #fbe9e7;
+    --code-bg:   #f3f5f8;
+    --tv:        #0f1722;
+    --tv-text:   #e8edf3;
+    --shadow:    0 1px 2px rgba(16, 24, 40, .06), 0 1px 3px rgba(16, 24, 40, .08);
+    color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --bg:        #0f141b;
+        --surface:   #161d26;
+        --surface-2: #1d2631;
+        --text:      #e3e8ee;
+        --muted:     #9aa6b4;
+        --border:    #2a3441;
+        --accent:    #5aa7f0;
+        --accent-bg: #15283c;
+        --ok:        #5cc98c;
+        --ok-bg:     #13291d;
+        --warn:      #e8b44f;
+        --warn-bg:   #2d2412;
+        --bad:       #f08a80;
+        --bad-bg:    #321816;
+        --code-bg:   #1b232d;
+        --tv:        #05080c;
+        --tv-text:   #e8edf3;
+        --shadow:    none;
+        color-scheme: dark;
+    }
+}
+:root[data-theme="dark"] {
+    --bg:        #0f141b;
+    --surface:   #161d26;
+    --surface-2: #1d2631;
+    --text:      #e3e8ee;
+    --muted:     #9aa6b4;
+    --border:    #2a3441;
+    --accent:    #5aa7f0;
+    --accent-bg: #15283c;
+    --ok:        #5cc98c;
+    --ok-bg:     #13291d;
+    --warn:      #e8b44f;
+    --warn-bg:   #2d2412;
+    --bad:       #f08a80;
+    --bad-bg:    #321816;
+    --code-bg:   #1b232d;
+    --tv:        #05080c;
+    --tv-text:   #e8edf3;
+    --shadow:    none;
+    color-scheme: dark;
+}
+
+/* ---------- Base ---------- */
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 72px; }
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.6 "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+h1, h2, h3, h4 { line-height: 1.25; margin: 0; }
+p { margin: 0 0 12px; }
+ul, ol { margin: 0 0 12px; padding-left: 22px; }
+li { margin: 4px 0; }
+code, kbd, pre { font-family: "Cascadia Mono", Consolas, "SFMono-Regular", Menlo, monospace; font-size: .88em; }
+code { background: var(--code-bg); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; word-break: break-word; }
+kbd {
+    display: inline-block; min-width: 1.6em; padding: 1px 6px; text-align: center;
+    background: var(--surface); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px;
+}
+
+/* ---------- Top bar ---------- */
+.topbar {
+    position: sticky; top: 0; z-index: 20;
+    display: flex; align-items: center; gap: 12px;
+    height: 56px; padding: 0 16px;
+    background: var(--surface); border-bottom: 1px solid var(--border);
+}
+.topbar .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; color: var(--text); }
+.topbar .brand:hover { text-decoration: none; }
+.topbar .brand svg { flex: none; }
+.topbar .ver { font-size: 13px; font-weight: 400; color: var(--muted); }
+.topbar .spacer { flex: 1; }
+.icon-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    height: 36px; min-width: 36px; padding: 0 10px;
+    background: transparent; color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px; cursor: pointer; font: inherit; font-size: 14px;
+}
+.icon-btn:hover { background: var(--surface-2); }
+.icon-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#btn_nav { display: none; }
+
+/* ---------- Layout ---------- */
+.layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); max-width: 1240px; margin: 0 auto; }
+.sidebar {
+    position: sticky; top: 56px; align-self: start;
+    height: calc(100vh - 56px); overflow-y: auto;
+    padding: 24px 12px 24px 16px; border-right: 1px solid var(--border);
+}
+.sidebar .group { font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin: 18px 10px 6px; }
+.sidebar .group:first-child { margin-top: 0; }
+.sidebar a {
+    display: block; padding: 6px 10px; border-radius: 6px;
+    color: var(--text); font-size: 14px; line-height: 1.4;
+}
+.sidebar a:hover { background: var(--surface-2); text-decoration: none; }
+.sidebar a.active { background: var(--accent-bg); color: var(--accent); font-weight: 600; }
+main { padding: 32px 40px 80px; min-width: 0; }
+
+/* ---------- Hero ---------- */
+.hero {
+    padding: 28px; margin-bottom: 32px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow);
+}
+.hero h1 { font-size: 30px; margin-bottom: 8px; }
+.hero p.lead { font-size: 17px; color: var(--muted); max-width: 760px; }
+.parts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 20px; }
+.part { padding: 16px; background: var(--surface-2); border-radius: 10px; }
+.part .tag { font-size: 12px; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: .04em; }
+.part h3 { font-size: 16px; margin: 4px 0 6px; }
+.part p { font-size: 14px; color: var(--muted); margin: 0; }
+
+/* ---------- Sections ---------- */
+section { margin-bottom: 48px; }
+section > h2 {
+    display: flex; align-items: baseline; gap: 12px;
+    font-size: 24px; padding-bottom: 10px; margin-bottom: 18px; border-bottom: 1px solid var(--border);
+}
+section > h2 .num { font-size: 14px; font-weight: 600; color: var(--accent); min-width: 22px; }
+h3.sub { font-size: 18px; margin: 26px 0 10px; }
+.card {
+    padding: 20px; margin: 14px 0;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow);
+}
+.card > h3 { font-size: 17px; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+.grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.muted { color: var(--muted); }
+.small { font-size: 14px; }
+
+/* ---------- Steps ---------- */
+ol.steps { list-style: none; padding: 0; counter-reset: step; }
+ol.steps > li {
+    position: relative; counter-increment: step;
+    padding: 0 0 18px 48px; margin: 0;
+}
+ol.steps > li::before {
+    content: counter(step);
+    position: absolute; left: 0; top: -2px;
+    width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--accent); color: #fff; font-weight: 600; font-size: 15px;
+}
+ol.steps > li::after {
+    content: ""; position: absolute; left: 15px; top: 34px; bottom: 2px; width: 2px; background: var(--border);
+}
+ol.steps > li:last-child::after { display: none; }
+ol.steps > li > strong:first-child { display: block; margin-bottom: 4px; }
+
+/* ---------- Callouts ---------- */
+.note {
+    display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px;
+    padding: 12px 14px; margin: 14px 0; border-radius: 10px; border: 1px solid transparent; font-size: 15px;
+}
+.note p:last-child { margin: 0; }
+.note .ico { font-weight: 700; text-align: center; line-height: 1.6; }
+.note.info { background: var(--accent-bg); color: var(--text); }
+.note.info .ico { color: var(--accent); }
+.note.ok   { background: var(--ok-bg); }
+.note.ok .ico { color: var(--ok); }
+.note.warn { background: var(--warn-bg); }
+.note.warn .ico { color: var(--warn); }
+.note.bad  { background: var(--bad-bg); }
+.note.bad .ico { color: var(--bad); }
+
+/* ---------- Code blocks ---------- */
+.code { position: relative; margin: 10px 0 14px; }
+.code pre {
+    margin: 0; padding: 14px 16px; padding-right: 80px; overflow-x: auto;
+    background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px; line-height: 1.5;
+    white-space: pre-wrap; word-break: break-all;
+}
+.code .copy {
+    position: absolute; top: 8px; right: 8px; height: 30px; font-size: 13px;
+    background: var(--surface);
+}
+
+/* ---------- Tables ---------- */
+.table-wrap { overflow-x: auto; margin: 10px 0 14px; border: 1px solid var(--border); border-radius: 10px; }
+table { width: 100%; border-collapse: collapse; font-size: 15px; background: var(--surface); }
+th, td { text-align: left; vertical-align: top; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+th { background: var(--surface-2); font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+tr:last-child td { border-bottom: 0; }
+td:first-child { font-weight: 600; white-space: nowrap; }
+td.wrap { white-space: normal; }
+
+/* ---------- Badges ---------- */
+.badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; vertical-align: 1px; }
+.badge.ok   { background: var(--ok-bg); color: var(--ok); }
+.badge.warn { background: var(--warn-bg); color: var(--warn); }
+.badge.bad  { background: var(--bad-bg); color: var(--bad); }
+.badge.info { background: var(--accent-bg); color: var(--accent); }
+
+/* ---------- Diagrams ---------- */
+figure { margin: 16px 0; }
+figure .frame { padding: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow-x: auto; }
+figure svg { display: block; width: 100%; height: auto; min-width: 520px; }
+figcaption { font-size: 14px; color: var(--muted); margin-top: 8px; }
+svg .d-box    { fill: var(--surface-2); stroke: var(--border); stroke-width: 1.5; }
+svg .d-accent { fill: var(--accent-bg); stroke: var(--accent); stroke-width: 1.5; }
+svg .d-title  { fill: var(--text); font: 600 15px "Segoe UI", system-ui, sans-serif; }
+svg .d-text   { fill: var(--muted); font: 13px "Segoe UI", system-ui, sans-serif; }
+svg .d-line   { stroke: var(--accent); stroke-width: 2; fill: none; }
+svg .d-dash   { stroke: var(--muted); stroke-width: 1.5; fill: none; stroke-dasharray: 6 5; }
+svg .d-arrow  { fill: var(--accent); }
+svg .d-arrow-m{ fill: var(--muted); }
+svg .d-label  { fill: var(--text); font: 600 12px "Segoe UI", system-ui, sans-serif; }
+
+/* ---------- TV mock-ups ---------- */
+.tv {
+    position: relative; max-width: 640px; aspect-ratio: 16 / 9; margin: 0 auto;
+    border: 10px solid #1a1f27; border-radius: 10px; overflow: hidden;
+    background: linear-gradient(135deg, #1d3b5e 0%, #0f2238 55%, #233a2c 100%);
+    color: var(--tv-text); font-family: "Segoe UI", system-ui, sans-serif;
+}
+.tv .clock { position: absolute; top: 6%; right: 5%; font-size: 13px; opacity: .85; }
+.tv .row { position: absolute; left: 5%; right: 5%; bottom: 10%; display: flex; gap: 2.5%; }
+.tv .btn {
+    flex: 0 0 16%; aspect-ratio: 4 / 3; border-radius: 8px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+    background: rgba(255, 255, 255, .12); font-size: 12px; border: 2px solid transparent;
+}
+.tv .btn i { width: 22px; height: 22px; border-radius: 6px; background: rgba(255, 255, 255, .35); }
+.tv .btn.focus { border-color: #fff; background: rgba(255, 255, 255, .22); }
+.tv .count {
+    position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%);
+    padding: 8px 14px; border-radius: 8px; background: rgba(0, 0, 0, .55); font-size: 13px; white-space: nowrap;
+}
+.tv.menu { background: var(--tv); }
+.tv .sm { position: absolute; inset: 5% 6%; display: grid; grid-template-columns: 1fr 1fr; gap: 0 6%; font-size: 11px; }
+.tv .sm h4 { grid-column: 1 / -1; font-size: 14px; margin-bottom: 6px; }
+.tv .sm div { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; border-bottom: 1px solid rgba(255, 255, 255, .1); }
+.tv .sm div span:last-child { opacity: .7; text-align: right; }
+.tv .sm div.focus { background: rgba(255, 255, 255, .12); border-radius: 4px; padding: 3px 4px; }
+
+/* ---------- FAQ ---------- */
+details {
+    margin: 10px 0; background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+}
+details > summary {
+    cursor: pointer; list-style: none; padding: 14px 44px 14px 16px; position: relative; font-weight: 600;
+}
+details > summary::-webkit-details-marker { display: none; }
+details > summary::after {
+    content: "+"; position: absolute; right: 16px; top: 50%; transform: translateY(-50%);
+    font-size: 20px; font-weight: 400; color: var(--muted);
+}
+details[open] > summary::after { content: "−"; }
+details > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 10px; }
+details > div { padding: 0 16px 14px; }
+
+footer { padding: 24px 0 0; border-top: 1px solid var(--border); color: var(--muted); font-size: 14px; }
+
+/* ---------- Small screens ---------- */
+@media (max-width: 960px) {
+    .layout { grid-template-columns: minmax(0, 1fr); }
+    #btn_nav { display: inline-flex; }
+    .sidebar {
+        display: none; position: fixed; top: 56px; left: 0; right: 0; z-index: 15;
+        height: auto; max-height: calc(100vh - 56px);
+        background: var(--surface); border-right: 0; border-bottom: 1px solid var(--border); box-shadow: 0 8px 24px rgba(0, 0, 0, .15);
+    }
+    body.nav-open .sidebar { display: block; }
+    main { padding: 24px 16px 64px; }
+    .parts, .grid-2 { grid-template-columns: minmax(0, 1fr); }
+    .hero { padding: 20px; }
+    .hero h1 { font-size: 24px; }
+}
+@media (max-width: 520px) {
+    .topbar .ver, .icon-btn .lbl { display: none; }
+    td:first-child { white-space: normal; }
+}
+
+/* ---------- Print ---------- */
+@media print {
+    .topbar, .sidebar, .copy { display: none !important; }
+    .layout { display: block; }
+    main { padding: 0; }
+    body { background: #fff; }
+    details { break-inside: avoid; }
+    details > div { display: block !important; }
+    section { break-inside: auto; }
+    .card, figure, .table-wrap { break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+    <button class="icon-btn" id="btn_nav" type="button" aria-label="Contents" aria-expanded="false" aria-controls="sidebar">&#9776;</button>
+    <a class="brand" href="#top">
+        <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true">
+            <rect x="2" y="4" width="24" height="16" rx="3" fill="var(--accent)"/>
+            <rect x="9" y="22" width="10" height="2.5" rx="1.2" fill="var(--muted)"/>
+            <rect x="6" y="13" width="4" height="4" rx="1" fill="#fff"/>
+            <rect x="12" y="13" width="4" height="4" rx="1" fill="#fff" opacity=".7"/>
+            <rect x="18" y="13" width="4" height="4" rx="1" fill="#fff" opacity=".7"/>
+        </svg>
+        <span>esTV Custom Launcher <span class="ver">Manual · CMS 1.0.5 / Launcher 1.0.4</span></span>
+    </a>
+    <span class="spacer"></span>
+    <button class="icon-btn" id="btn_print" type="button" aria-label="Print"><span aria-hidden="true">&#128424;</span><span class="lbl">Print</span></button>
+    <button class="icon-btn" id="btn_theme" type="button" aria-label="Switch light or dark theme"><span aria-hidden="true" id="theme_icon">&#9790;</span><span class="lbl" id="theme_label">Dark</span></button>
+</header>
+
+<div class="layout" id="top">
+
+<nav class="sidebar" id="sidebar" aria-label="Contents">
+    <div class="group">Start here</div>
+    <a href="#overview">Overview</a>
+    <a href="#how">How it works</a>
+    <a href="#before">Before you start</a>
+    <div class="group">Installation</div>
+    <a href="#install-cms">1. Install the CMS</a>
+    <a href="#first-sign-in">2. First sign-in</a>
+    <a href="#eslink">3. CMS IP on eslink</a>
+    <a href="#setup-box">4. Set up a box</a>
+    <div class="group">On the box</div>
+    <a href="#home">Home screen</a>
+    <a href="#secret-menu">Secret Menu</a>
+    <a href="#autostart-box">Auto-start on the box</a>
+    <div class="group">CMS web page</div>
+    <a href="#cms-boxes">Boxes</a>
+    <a href="#cms-wallpaper">Wallpaper</a>
+    <a href="#cms-buttons">Home buttons</a>
+    <a href="#cms-display">Display</a>
+    <a href="#cms-autostart">Auto-start</a>
+    <a href="#cms-apks">APK updates</a>
+    <a href="#cms-settings">Settings</a>
+    <div class="group">Operations</div>
+    <a href="#rules">Which setting wins</a>
+    <a href="#update">Updating</a>
+    <a href="#troubleshooting">Troubleshooting</a>
+    <a href="#reference">Quick reference</a>
+</nav>
+
+<main>
+
+<!-- ======================================================= OVERVIEW -->
+<div class="hero" id="overview">
+    <h1>esTV Custom Launcher</h1>
+    <p class="lead">A home screen for hotel esTV boxes that are not used by guests (staff, signage, back-office TVs). You run it from one CMS on the hotel's own PC: wallpaper, buttons, screen size, the auto-start app and app updates for every box.</p>
+    <div class="parts">
+        <div class="part">
+            <span class="tag">On every box</span>
+            <h3>Custom Launcher app</h3>
+            <p>Android home screen <code>com.excel.estvlauncher.custom</code>. It shows the wallpaper, a Menu button and the app buttons, and checks in with the CMS every 5 minutes.</p>
+        </div>
+        <div class="part">
+            <span class="tag">On a hotel PC</span>
+            <h3>Custom Launcher CMS</h3>
+            <p>A web page on a Windows PC on the hotel LAN, port <code>4053</code>. You manage all of the hotel's boxes here. It starts with Windows.</p>
+        </div>
+        <div class="part">
+            <span class="tag">On eslink.online</span>
+            <h3>CMS IP page</h3>
+            <p><em>Other Products &rsaquo; Custom Launcher &rsaquo; CMS IP</em>. It stores each hotel's CMS address, so a box that lost its CMS can find it again. Sign-in to the CMS also uses eslink accounts.</p>
+        </div>
+    </div>
+</div>
+
+<!-- ======================================================= HOW IT WORKS -->
+<section id="how">
+    <h2><span class="num">&#9679;</span>How it works</h2>
+    <figure>
+        <div class="frame">
+            <svg viewBox="0 0 860 322" role="img" aria-labelledby="arch_t arch_d">
+                <title id="arch_t">How the parts talk</title>
+                <desc id="arch_d">Boxes check in with the CMS PC every 5 minutes over the hotel LAN. The CMS signs people in through eslink. A box asks eslink for the CMS address only when it cannot reach the CMS.</desc>
+                <defs>
+                    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="d-arrow"/></marker>
+                    <marker id="arm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="d-arrow-m"/></marker>
+                </defs>
+                <!-- Boxes -->
+                <rect x="20" y="40" width="200" height="150" rx="12" class="d-box"/>
+                <text x="120" y="70" text-anchor="middle" class="d-title">esTV boxes</text>
+                <text x="120" y="94" text-anchor="middle" class="d-text">Custom Launcher app</text>
+                <rect x="50" y="112" width="140" height="22" rx="5" class="d-accent"/><text x="120" y="128" text-anchor="middle" class="d-label">Room / Lobby TV 1</text>
+                <rect x="50" y="140" width="140" height="22" rx="5" class="d-accent"/><text x="120" y="156" text-anchor="middle" class="d-label">Back-office TV 2</text>
+                <text x="120" y="180" text-anchor="middle" class="d-text">… every box</text>
+                <!-- CMS -->
+                <rect x="330" y="40" width="200" height="150" rx="12" class="d-accent"/>
+                <text x="430" y="70" text-anchor="middle" class="d-title">CMS PC (Windows)</text>
+                <text x="430" y="94" text-anchor="middle" class="d-text">port 4053 · PM2</text>
+                <text x="430" y="116" text-anchor="middle" class="d-text">boxes, wallpaper, buttons</text>
+                <text x="430" y="136" text-anchor="middle" class="d-text">display, auto-start, APKs</text>
+                <text x="430" y="160" text-anchor="middle" class="d-text">data\cms.db</text>
+                <!-- eslink -->
+                <rect x="640" y="40" width="200" height="150" rx="12" class="d-box"/>
+                <text x="740" y="70" text-anchor="middle" class="d-title">eslink.online</text>
+                <text x="740" y="94" text-anchor="middle" class="d-text">eslink accounts (sign-in)</text>
+                <text x="740" y="116" text-anchor="middle" class="d-text">CMS IP of each hotel</text>
+                <!-- Browser -->
+                <rect x="330" y="230" width="200" height="50" rx="12" class="d-box"/>
+                <text x="430" y="261" text-anchor="middle" class="d-title">Your browser</text>
+                <!-- Lines -->
+                <path d="M220,100 L330,100" class="d-line" marker-end="url(#ar)" marker-start="url(#ar)"/>
+                <text x="275" y="90" text-anchor="middle" class="d-label">check-in</text>
+                <text x="275" y="118" text-anchor="middle" class="d-text">every 5 min</text>
+                <path d="M530,100 L640,100" class="d-line" marker-end="url(#ar)"/>
+                <text x="585" y="90" text-anchor="middle" class="d-label">sign-in</text>
+                <path d="M430,230 L430,190" class="d-line" marker-end="url(#ar)"/>
+                <text x="440" y="215" class="d-text">http://&lt;CMS IP&gt;:4053</text>
+                <path d="M120,190 C120,270 300,290 380,290 L700,290 C740,290 740,250 740,190" class="d-dash" marker-end="url(#arm)"/>
+                <text x="430" y="314" text-anchor="middle" class="d-text">only when the CMS can't be reached: "where is my CMS?"</text>
+            </svg>
+        </div>
+        <figcaption>Boxes talk only to the CMS on the hotel LAN. eslink is used for sign-in and as a fallback address book.</figcaption>
+    </figure>
+    <ul>
+        <li><strong>Check-in.</strong> Every 5 minutes, at start-up, when the network comes up and on <em>Check Now</em>, the box sends its MAC, IP, name, versions and screen modes to the CMS. The CMS answers with what the box should have: wallpaper, buttons, display, auto-start app and APK updates.</li>
+        <li><strong>Changes reach the boxes within 5 minutes.</strong> Press <em>Check Now</em> in a box's Secret Menu to get them at once. After an install or a display change the box reports back straight away.</li>
+        <li><strong>No passwords on the CMS PC.</strong> People sign in with their own eslink account. The CMS stores no eslink secret.</li>
+        <li><strong>Lost CMS?</strong> If a box can't reach its CMS (for example the PC got a new IP), it asks eslink for the hotel's CMS IP, saves it and tries again.</li>
+    </ul>
+</section>
+
+<!-- ======================================================= BEFORE YOU START -->
+<section id="before">
+    <h2><span class="num">&#9679;</span>Before you start</h2>
+    <div class="grid-2">
+        <div class="card">
+            <h3>CMS PC</h3>
+            <ul class="small">
+                <li>Windows 10 or 11 PC that stays on, on the same LAN as the boxes.</li>
+                <li>A <strong>fixed IP</strong> (static, or reserved on the router/DHCP). New boxes look for <code>172.19.0.3:4053</code>, so use that IP if you can.</li>
+                <li>An administrator account on the PC (the installer asks for elevation).</li>
+                <li>Internet access during installation (GitHub, Node.js, Git, ADB).</li>
+            </ul>
+        </div>
+        <div class="card">
+            <h3>Accounts and boxes</h3>
+            <ul class="small">
+                <li>An eslink account with the role <strong>esTV Custom Launcher</strong> and access to the hotel's property.</li>
+                <li>esTV boxes (Android). Root is recommended: updates then install silently.</li>
+                <li>The launcher APK, for example <code>esTV_Custom_Launcher_v1.0.4-release.apk</code>.</li>
+                <li>For the first install on a box: ADB on a laptop, and network ADB (port 5555) on the box.</li>
+            </ul>
+        </div>
+    </div>
+    <div class="note info"><span class="ico">i</span><p>Plan the IP first. Every box must reach <code>http://&lt;CMS IP&gt;:4053</code>. The installer opens TCP 4053 in Windows Firewall; a hotel firewall between VLANs must allow it too.</p></div>
+</section>
+
+<!-- ======================================================= INSTALL CMS -->
+<section id="install-cms">
+    <h2><span class="num">1</span>Install the CMS</h2>
+    <ol class="steps">
+        <li>
+            <strong>Open a normal Command Prompt (cmd) on the CMS PC</strong>
+            <span class="muted small">Not PowerShell ISE. You don't need to start it as Administrator; the installer asks for it.</span>
+        </li>
+        <li>
+            <strong>Paste this line and press Enter</strong>
+            <div class="code"><pre id="cmd_install">powershell -NoProfile -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol='Tls12'; irm https://files.estv.cloud/estv-custom-launcher-cms/installer/install.ps1 | iex"</pre><button class="icon-btn copy" type="button" data-copy="cmd_install">Copy</button></div>
+        </li>
+        <li>
+            <strong>Allow the Administrator prompt</strong>
+            The installer now runs these steps by itself and prints a summary at the end:
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Step</th><th>What it does</th></tr></thead>
+                    <tbody>
+                        <tr><td>Tools</td><td class="wrap">Installs Git, Node.js LTS and ADB (Android platform-tools) when they are missing.</td></tr>
+                        <tr><td>CMS</td><td class="wrap">Downloads the CMS from GitHub into <code>&lt;drive&gt;:\estv-custom-launcher-cms</code>, or updates it there.</td></tr>
+                        <tr><td>PM2</td><td class="wrap">Runs the CMS in PM2 and starts it with Windows.</td></tr>
+                        <tr><td>Firewall</td><td class="wrap">Allows incoming TCP 4053 (boxes and the web page).</td></tr>
+                        <tr><td>Shortcuts</td><td class="wrap">Adds <strong>Custom Launcher CMS</strong> (opens the web page) and <strong>Start Custom Launcher CMS</strong> to the Desktop.</td></tr>
+                        <tr><td>Web page</td><td class="wrap">Opens <code>http://localhost:4053</code> in the browser.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </li>
+        <li>
+            <strong>Check the summary</strong>
+            Every line should be <span class="badge ok">OK</span>. A <span class="badge warn">WARN</span> line tells you what to do, for example "use the Start shortcut on the Desktop".
+        </li>
+    </ol>
+    <div class="note ok"><span class="ico">&#10003;</span><p><strong>Updating later is the same line.</strong> Running it again updates the CMS and keeps <code>data\</code>: the database, wallpaper, APKs and the chosen property.</p></div>
+</section>
+
+<!-- ======================================================= FIRST SIGN-IN -->
+<section id="first-sign-in">
+    <h2><span class="num">2</span>First sign-in</h2>
+    <ol class="steps">
+        <li><strong>Open the web page</strong>On the CMS PC use the Desktop shortcut <em>Custom Launcher CMS</em>. From another PC open <code>http://&lt;CMS IP&gt;:4053</code>.</li>
+        <li><strong>Sign in with your eslink user ID and password</strong>The CMS checks them on eslink.online. It needs internet for sign-in.</li>
+        <li><strong>Choose the hotel</strong>The very first sign-in on a new CMS shows <em>Hotel (eslink property)</em> in the same form. Pick the property and sign in. It is stored on the CMS; later sign-ins skip this.</li>
+        <li><strong>Open Settings</strong>Check <em>This CMS</em>: the property, and the address boxes use to reach this PC.</li>
+    </ol>
+    <div class="note warn"><span class="ico">!</span><p><strong>Too many failed sign-ins.</strong> 10 wrong passwords within 5 minutes from one computer lock sign-in on that computer for up to 5 minutes. Wait, then try again with the right password.</p></div>
+    <p class="small muted">You are signed out after 12 hours without using the page. <em>Change property</em> on the Settings page moves the CMS to another hotel; the boxes then get that hotel's property at their next check-in.</p>
+</section>
+
+<!-- ======================================================= ESLINK -->
+<section id="eslink">
+    <h2><span class="num">3</span>Set the CMS IP on eslink</h2>
+    <p>This is the safety net: a box that can't reach its CMS asks eslink where the CMS is.</p>
+    <ol class="steps">
+        <li><strong>Sign in to eslink.online</strong>Your account needs the role <em>esTV Custom Launcher</em>.</li>
+        <li><strong>Open <em>Other Products &rsaquo; Custom Launcher &rsaquo; CMS IP</em></strong>Choose the hotel.</li>
+        <li><strong>Enter the CMS address</strong><em>CMS IP / host name</em> = the CMS PC's LAN IP (for example <code>172.19.0.3</code>), <em>Port</em> = <code>4053</code>. Save.</li>
+    </ol>
+    <div class="note info"><span class="ico">i</span><p>The fallback only works on a box that checked in with this hotel's CMS at least once, because the box needs to know its property ID. Update this page whenever the CMS PC changes IP.</p></div>
+</section>
+
+<!-- ======================================================= SETUP BOX -->
+<section id="setup-box">
+    <h2><span class="num">4</span>Set up a box</h2>
+    <ol class="steps">
+        <li>
+            <strong>Install the launcher APK</strong>
+            From a laptop with ADB, on the same network as the box:
+            <div class="code"><pre id="cmd_adb">adb connect &lt;box IP&gt;:5555
+adb install -r esTV_Custom_Launcher_v1.0.4-release.apk</pre><button class="icon-btn copy" type="button" data-copy="cmd_adb">Copy</button></div>
+            <span class="small muted">The launcher is signed with the same key as esTVLauncher. Later versions come from the CMS by themselves (see <a href="#cms-apks">APK updates</a>).</span>
+        </li>
+        <li>
+            <strong>Make it the home screen</strong>
+            Press <kbd>Home</kbd> on the remote, choose <strong>esTV Custom Launcher</strong> and <strong>Always</strong>. Or, over ADB:
+            <div class="code"><pre id="cmd_home">adb shell cmd package set-home-activity com.excel.estvlauncher.custom/.HomeActivity</pre><button class="icon-btn copy" type="button" data-copy="cmd_home">Copy</button></div>
+        </li>
+        <li>
+            <strong>Open the Secret Menu</strong>
+            On the home screen select <strong>Menu</strong> (the first button) and press <kbd>OK</kbd>. There is no PIN: these TVs are for staff.
+        </li>
+        <li>
+            <strong>Set the CMS IP / Port</strong>
+            Only if the CMS is not at the default <code>172.19.0.3:4053</code>. Enter the CMS PC's IP, then the port.
+        </li>
+        <li>
+            <strong>Give the box a name</strong>
+            <em>Box Name &rsaquo; Set Box Name</em>, for example "Lobby TV 1". This name is shown in the CMS box list.
+        </li>
+        <li>
+            <strong>Turn on the Permission Helper</strong>
+            <em>Permission Helper &rsaquo; Off - Turn On</em>. It presses <em>Install</em> and <em>Allow</em> on the Android installer screens, so updates finish without a remote when root can't be used.
+        </li>
+        <li>
+            <strong>Press Check Now</strong>
+            <em>Last Check-in</em> should show <span class="badge ok">OK (CMS …)</span>, and <em>Property ID / Property Name</em> show the hotel. The box now appears on the CMS <a href="#cms-boxes">Boxes</a> page.
+        </li>
+    </ol>
+</section>
+
+<!-- ======================================================= HOME -->
+<section id="home">
+    <h2><span class="num">&#9679;</span>Home screen</h2>
+    <figure>
+        <div class="tv" role="img" aria-label="Home screen mock-up: wallpaper, then a row of buttons. Menu first, then the app buttons from the CMS.">
+            <div class="row">
+                <div class="btn focus"><i></i>Menu</div>
+                <div class="btn"><i></i>Signage</div>
+                <div class="btn"><i></i>TV</div>
+                <div class="btn"><i></i>YouTube</div>
+            </div>
+        </div>
+        <figcaption>The wallpaper and the app buttons come from the CMS. <strong>Menu</strong> is always first and opens the Secret Menu.</figcaption>
+    </figure>
+    <ul>
+        <li>Move with the arrow keys and press <kbd>OK</kbd> to open an app.</li>
+        <li>A button whose app is not installed shows "<em>… is not installed on this box</em>". Upload the app on <a href="#cms-apks">APK updates</a> and the box installs it.</li>
+        <li>With no app buttons set, only Menu is shown.</li>
+    </ul>
+</section>
+
+<!-- ======================================================= SECRET MENU -->
+<section id="secret-menu">
+    <h2><span class="num">&#9679;</span>Secret Menu</h2>
+    <figure>
+        <div class="tv menu" role="img" aria-label="Secret Menu mock-up: two columns of rows with a label and a value.">
+            <div class="sm">
+                <h4>Secret Menu</h4>
+                <div><span>Mac Address</span><span>AA:BB:CC:DD:EE:FF</span></div>
+                <div><span>CMS IP / Port</span><span>172.19.0.3:4053</span></div>
+                <div><span>Firmware Version</span><span>esTV_v3.1.4</span></div>
+                <div><span>Property ID</span><span>2152130425</span></div>
+                <div><span>Launcher Version</span><span>1.0.4</span></div>
+                <div><span>Property Name</span><span>Hotel X</span></div>
+                <div><span>Box Name</span><span>Lobby TV 1</span></div>
+                <div class="focus"><span>Last Check-in</span><span>10:40 OK</span></div>
+                <div><span>Interface</span><span>Ethernet</span></div>
+                <div><span>Check Now</span><span>›</span></div>
+                <div><span>IP Address</span><span>172.19.0.57</span></div>
+                <div><span>Home Buttons</span><span>Edit (3, from CMS)</span></div>
+                <div><span>Reboot Box</span><span>Reboot</span></div>
+                <div><span>Auto-start App</span><span>Signage (CMS)</span></div>
+                <div><span>Recovery</span><span>Reboot to Recovery</span></div>
+                <div><span>Permission Helper</span><span>On</span></div>
+            </div>
+        </div>
+        <figcaption>Left: the box. Right: the CMS connection and settings. Press <kbd>Back</kbd> to return home.</figcaption>
+    </figure>
+
+    <h3 class="sub">The box</h3>
+    <div class="table-wrap"><table>
+        <thead><tr><th>Row</th><th>What it shows or does</th></tr></thead>
+        <tbody>
+            <tr><td>Mac Address</td><td class="wrap">The box's identity on the CMS. Android 10 hides the real MAC without root; the launcher then uses a fixed stand-in starting with <code>02:</code>.</td></tr>
+            <tr><td>Firmware / Launcher Version</td><td class="wrap">Installed firmware and launcher versions.</td></tr>
+            <tr><td>Box Name</td><td class="wrap"><em>Set Box Name</em>: the name shown in the CMS box list.</td></tr>
+            <tr><td>Interface / IP Address</td><td class="wrap">Ethernet or WiFi, and the box's IP. "Network Disconnected" when there is no network.</td></tr>
+            <tr><td>Reboot Box</td><td class="wrap">Restarts the box.</td></tr>
+            <tr><td>Recovery</td><td class="wrap">Restarts into recovery mode. For technicians only.</td></tr>
+        </tbody>
+    </table></div>
+
+    <h3 class="sub">CMS and settings</h3>
+    <div class="table-wrap"><table>
+        <thead><tr><th>Row</th><th>What it shows or does</th></tr></thead>
+        <tbody>
+            <tr><td>CMS IP / Port</td><td class="wrap">Address of the CMS PC. Default <code>172.19.0.3:4053</code>.</td></tr>
+            <tr><td>Property ID / Name</td><td class="wrap">The hotel, received from the CMS. A long name wraps to up to three lines.</td></tr>
+            <tr><td>Last Check-in</td><td class="wrap">Time and result of the last check-in, including updates or display changes. Select it to read the full text.</td></tr>
+            <tr><td>Check Now</td><td class="wrap">Checks in at once. It also tries a failed APK again and applies the CMS display setting again.</td></tr>
+            <tr><td>Home Buttons</td><td class="wrap"><em>Edit</em>: add, change or delete buttons on this box only (<em>Add Button</em>, pick an app). <em>Use CMS Buttons</em> goes back to the CMS list. The CMS list replaces local buttons again when it changes.</td></tr>
+            <tr><td>Auto-start App</td><td class="wrap"><em>None</em>, <em>Use the CMS setting</em>, or any installed app. "(CMS)" or "(this box)" shows where the choice came from. See <a href="#autostart-box">Auto-start on the box</a>.</td></tr>
+            <tr><td>Permission Helper</td><td class="wrap">Accessibility helper that presses <em>Install</em> / <em>Allow</em> during app updates. Should be <strong>On</strong>.</td></tr>
+            <tr><td>Root Browser / MBox / Android Settings</td><td class="wrap">Open the file browser, the MBox settings or Android Settings.</td></tr>
+        </tbody>
+    </table></div>
+</section>
+
+<!-- ======================================================= AUTOSTART BOX -->
+<section id="autostart-box">
+    <h2><span class="num">&#9679;</span>Auto-start on the box</h2>
+    <figure>
+        <div class="tv" role="img" aria-label="Home screen with a countdown: Starting Signage in 8 s - press any key to cancel.">
+            <span class="count">Starting Signage in 8 s - press any key to cancel</span>
+            <div class="row">
+                <div class="btn focus"><i></i>Menu</div>
+                <div class="btn"><i></i>Signage</div>
+                <div class="btn"><i></i>TV</div>
+            </div>
+        </div>
+        <figcaption>After start-up the box counts down, then opens the auto-start app.</figcaption>
+    </figure>
+    <div class="grid-2">
+        <div class="card">
+            <h3>After start-up</h3>
+            <p class="small">The box waits the <strong>start delay</strong> (default 10 s, set on the CMS), showing a countdown. Then it opens the app. <strong>Any key</strong> on the remote cancels the countdown, so a technician can reach the Secret Menu.</p>
+        </div>
+        <div class="card">
+            <h3>When the app was closed</h3>
+            <p class="small">If the home screen stays untouched for the <strong>relaunch time</strong> (default 10 minutes, 0 = never), the countdown starts again and the app reopens. A key press restarts the wait; the Secret Menu pauses it.</p>
+        </div>
+    </div>
+</section>
+
+<!-- ======================================================= CMS: BOXES -->
+<section id="cms-boxes">
+    <h2><span class="num">&#9679;</span>CMS: Boxes</h2>
+    <p>Every box that has checked in, with its name, MAC, IP, last check-in, launcher and button-app versions, display, auto-start app and update state.</p>
+    <ul>
+        <li><strong>Search</strong> by name, MAC or IP. Click a column heading to sort. <strong>CSV</strong> exports the list; <strong>&#8635;</strong> reloads it.</li>
+        <li><strong>Updates</strong> column: <span class="badge warn">Waiting</span> an APK is still to be installed, <span class="badge bad">Failed</span> hover for the reason, nothing when the box is up to date.</li>
+        <li><strong>Display</strong> and <strong>Auto-start</strong>: click to give this one box its own setting, or set it back to <em>Hotel setting</em>.</li>
+        <li>A box that hasn't checked in for a while shows its last check-in time in the past. It is off, out of the network, or pointing at another CMS.</li>
+    </ul>
+</section>
+
+<!-- ======================================================= CMS: WALLPAPER -->
+<section id="cms-wallpaper">
+    <h2><span class="num">&#9679;</span>CMS: Wallpaper</h2>
+    <ul>
+        <li><strong>Upload a new wallpaper</strong>: a JPG or PNG, ideally 1920 × 1080 (16:9).</li>
+        <li><strong>Use the built-in wallpaper</strong> removes the hotel wallpaper; boxes go back to the launcher's own.</li>
+        <li>Boxes download the new picture at their next check-in, only when it changed.</li>
+    </ul>
+</section>
+
+<!-- ======================================================= CMS: BUTTONS -->
+<section id="cms-buttons">
+    <h2><span class="num">&#9679;</span>CMS: Home buttons</h2>
+    <p>The buttons after <strong>Menu</strong> on every box. <strong>Add button</strong>, fill in the row, then <strong>Save</strong>.</p>
+    <div class="table-wrap"><table>
+        <thead><tr><th>Field</th><th>Meaning</th><th>Example</th></tr></thead>
+        <tbody>
+            <tr><td>Name on the button</td><td class="wrap">Text on the TV.</td><td><code>Signage</code></td></tr>
+            <tr><td>Package name</td><td class="wrap">The Android app to open.</td><td><code>com.optisigns.playe1</code></td></tr>
+            <tr><td>Start activity</td><td class="wrap">Leave empty to open the app normally. Fill in only for a special screen.</td><td><code>.MainActivity</code></td></tr>
+        </tbody>
+    </table></div>
+    <div class="note info"><span class="ico">i</span><p>Saving replaces buttons that were changed in a box's Secret Menu. Find a package name on the <a href="#cms-boxes">Boxes</a> page (button-app versions) or with <code>adb shell pm list packages</code>.</p></div>
+</section>
+
+<!-- ======================================================= CMS: DISPLAY -->
+<section id="cms-display">
+    <h2><span class="num">&#9679;</span>CMS: Display</h2>
+    <div class="grid-2">
+        <div class="card">
+            <h3>Screen size</h3>
+            <p class="small"><em>Don't change</em> (each box keeps its own) or <em>Set every box to</em> a percentage. Lower it when the picture's edges are cut off by the TV (overscan); 100% is the full picture.</p>
+        </div>
+        <div class="card">
+            <h3>Resolution</h3>
+            <p class="small">The list holds the resolutions the boxes' TVs report, such as <code>720P 60Hz</code>, <code>1080P 60Hz</code>. A box whose TV doesn't support the chosen one keeps its own.</p>
+        </div>
+    </div>
+    <ul>
+        <li>Set one box differently from its row on the <a href="#cms-boxes">Boxes</a> page.</li>
+        <li>A box applies a new setting once. If it fails, the box doesn't keep retrying (the picture would flicker); <em>Check Now</em> applies it again.</li>
+    </ul>
+</section>
+
+<!-- ======================================================= CMS: AUTOSTART -->
+<section id="cms-autostart">
+    <h2><span class="num">&#9679;</span>CMS: Auto-start</h2>
+    <div class="table-wrap"><table>
+        <thead><tr><th>Field</th><th>Meaning</th></tr></thead>
+        <tbody>
+            <tr><td>Auto-start app of every box</td><td class="wrap"><em>None</em>, an app the boxes have, or <em>Other app…</em> to type a package name and start activity.</td></tr>
+            <tr><td>Start delay</td><td class="wrap">Seconds after start-up before the app opens (0–120, default 10).</td></tr>
+            <tr><td>Open again after</td><td class="wrap">Minutes on the home screen before the app opens again (0 = never, up to 1440, default 10).</td></tr>
+        </tbody>
+    </table></div>
+    <p class="small muted">Changing only the timings keeps the apps chosen in the boxes' Secret Menus. Changing the app sends it to every box that uses the hotel setting.</p>
+</section>
+
+<!-- ======================================================= CMS: APKS -->
+<section id="cms-apks">
+    <h2><span class="num">&#9679;</span>CMS: APK updates</h2>
+    <ol class="steps">
+        <li><strong>Upload an APK</strong>The launcher itself or any app. The CMS reads its package name and version.</li>
+        <li><strong>Leave it Active</strong>Every box gets the newest active APK of each app when its installed version is lower or the app is missing.</li>
+        <li><strong>Watch the progress</strong>Each APK shows <em>done / total boxes</em> and failures. Open it to see every box: <span class="badge ok">Installed</span> <span class="badge warn">Waiting</span> <span class="badge bad">Failed</span>.</li>
+    </ol>
+    <ul>
+        <li>The box downloads the file, checks it, and installs it as root. Without root it uses the Android installer, and the Permission Helper presses Install.</li>
+        <li>A failed install isn't retried until you upload a different APK or press <em>Check Now</em> on the box.</li>
+        <li><strong>Install via ADB</strong> on a box row is a backup: the CMS PC installs the APK over network ADB (port 5555 on the box).</li>
+        <li>Turn <em>Active</em> off to stop an update. <strong>Delete</strong> removes the APK from the CMS; boxes keep what they installed.</li>
+    </ul>
+    <div class="note warn"><span class="ico">!</span><p>An APK can only replace an app signed with the same key. A launcher APK must come from the esTV Custom Launcher release build.</p></div>
+</section>
+
+<!-- ======================================================= CMS: SETTINGS -->
+<section id="cms-settings">
+    <h2><span class="num">&#9679;</span>CMS: Settings</h2>
+    <div class="grid-2">
+        <div class="card">
+            <h3>This CMS</h3>
+            <p class="small">The hotel (property) and the address boxes use to reach this PC, plus the CMS version. <em>Change property</em> moves this CMS to another hotel.</p>
+        </div>
+        <div class="card">
+            <h3>ADB (backup install)</h3>
+            <p class="small">The adb.exe used by <em>Install via ADB</em> and its version. Leave the path empty: the CMS finds the adb the installer set up.</p>
+        </div>
+    </div>
+</section>
+
+<!-- ======================================================= RULES -->
+<section id="rules">
+    <h2><span class="num">&#9679;</span>Which setting wins</h2>
+    <figure>
+        <div class="frame">
+            <svg viewBox="0 0 860 210" role="img" aria-labelledby="rule_t rule_d">
+                <title id="rule_t">Priority of settings</title>
+                <desc id="rule_d">Display: a box's own setting on the Boxes page wins over the hotel setting. Buttons and auto-start: the newest change wins between the CMS and the Secret Menu.</desc>
+                <defs><marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="d-arrow"/></marker></defs>
+                <text x="20" y="28" class="d-title">Display</text>
+                <rect x="20" y="42" width="230" height="46" rx="10" class="d-box"/><text x="135" y="70" text-anchor="middle" class="d-label">Hotel setting (Display page)</text>
+                <path d="M250,65 L370,65" class="d-line" marker-end="url(#ar2)"/><text x="310" y="56" text-anchor="middle" class="d-text">overridden by</text>
+                <rect x="370" y="42" width="230" height="46" rx="10" class="d-accent"/><text x="485" y="70" text-anchor="middle" class="d-label">Box's own (Boxes page)</text>
+                <text x="620" y="70" class="d-text">→ the box applies it once</text>
+
+                <text x="20" y="130" class="d-title">Buttons and auto-start app</text>
+                <rect x="20" y="144" width="230" height="46" rx="10" class="d-box"/><text x="135" y="172" text-anchor="middle" class="d-label">CMS (hotel or box's own)</text>
+                <rect x="320" y="144" width="230" height="46" rx="10" class="d-box"/><text x="435" y="172" text-anchor="middle" class="d-label">Box's Secret Menu</text>
+                <path d="M250,160 L320,160" class="d-line" marker-end="url(#ar2)"/><path d="M320,176 L250,176" class="d-line" marker-end="url(#ar2)"/>
+                <rect x="580" y="144" width="260" height="46" rx="10" class="d-accent"/><text x="710" y="172" text-anchor="middle" class="d-label">The newest change wins</text>
+            </svg>
+        </div>
+    </figure>
+    <ul>
+        <li><strong>Display:</strong> a box's own setting on the CMS beats the hotel setting.</li>
+        <li><strong>Buttons and auto-start app:</strong> a change in the Secret Menu stays until someone changes that setting on the CMS again. Then the CMS setting applies.</li>
+        <li><strong>Auto-start timings</strong> (delay, relaunch) always come from the CMS.</li>
+    </ul>
+</section>
+
+<!-- ======================================================= UPDATE -->
+<section id="update">
+    <h2><span class="num">&#9679;</span>Updating</h2>
+    <div class="grid-2">
+        <div class="card">
+            <h3>The CMS</h3>
+            <p class="small">Run the <a href="#install-cms">install line</a> again on the CMS PC. It updates the program and restarts it; boxes and settings are kept. The version is shown on the page footer and on Settings.</p>
+        </div>
+        <div class="card">
+            <h3>The launcher on the boxes</h3>
+            <p class="small">Upload the new launcher APK on <a href="#cms-apks">APK updates</a>. Each box installs it within 5 minutes and restarts its home screen. Follow it on the APK row.</p>
+        </div>
+    </div>
+</section>
+
+<!-- ======================================================= TROUBLESHOOTING -->
+<section id="troubleshooting">
+    <h2><span class="num">&#9679;</span>Troubleshooting</h2>
+
+    <details>
+        <summary>A box doesn't appear on the Boxes page</summary>
+        <div>
+            <ol>
+                <li>In the Secret Menu check <em>IP Address</em> (network up?) and <em>CMS IP / Port</em>.</li>
+                <li>Press <em>Check Now</em>, then select <em>Last Check-in</em> to read the error.</li>
+                <li>From another PC on the boxes' network open <code>http://&lt;CMS IP&gt;:4053</code>. If it doesn't load, check the CMS is running (Desktop shortcut <em>Start Custom Launcher CMS</em>) and the firewall allows TCP 4053.</li>
+            </ol>
+        </div>
+    </details>
+
+    <details>
+        <summary>The web page doesn't open</summary>
+        <div>
+            <p>Double-click <em>Start Custom Launcher CMS</em> on the Desktop of the CMS PC and wait a few seconds. If it still fails, run the <a href="#install-cms">install line</a> again; it repairs the installation and keeps the data.</p>
+        </div>
+    </details>
+
+    <details>
+        <summary>Sign-in fails</summary>
+        <div>
+            <ul>
+                <li><strong>Wrong user ID or password:</strong> try your eslink sign-in on eslink.online.</li>
+                <li><strong>No access / no properties:</strong> your eslink account needs the role <em>esTV Custom Launcher</em> and the hotel's property.</li>
+                <li><strong>"Too many failed sign-ins":</strong> wait the minutes shown, then try again.</li>
+                <li><strong>"eslink.online cannot be reached":</strong> the CMS PC has no internet. Sign-in needs it; the boxes don't.</li>
+            </ul>
+        </div>
+    </details>
+
+    <details>
+        <summary>An APK update shows Failed or stays Waiting</summary>
+        <div>
+            <ul>
+                <li>Hover the <span class="badge bad">Failed</span> badge for the reason. A signature mismatch means the APK is signed with a different key than the installed app.</li>
+                <li>On a box without root, turn the <em>Permission Helper</em> on in the Secret Menu, then press <em>Check Now</em>.</li>
+                <li>A box that stays <span class="badge warn">Waiting</span> hasn't checked in yet: check its last check-in.</li>
+                <li>As a backup use <em>Install via ADB</em> on that box's row.</li>
+            </ul>
+        </div>
+    </details>
+
+    <details>
+        <summary>The picture is cut off or the resolution is wrong</summary>
+        <div>
+            <p>Lower the screen size (for example 92%) on the <a href="#cms-display">Display</a> page, or for one box on the Boxes page. Press <em>Check Now</em> on the box to apply it at once. Only resolutions the box's TV reports can be set.</p>
+        </div>
+    </details>
+
+    <details>
+        <summary>The auto-start app doesn't open</summary>
+        <div>
+            <ul>
+                <li>Check <em>Auto-start App</em> in the Secret Menu: it must show an app, not <em>None</em>.</li>
+                <li>The countdown is cancelled by any key, including a key press during start-up.</li>
+                <li>Make sure the Custom Launcher is the default home screen (<a href="#setup-box">step 2 of box set-up</a>).</li>
+                <li>The relaunch only runs while the home screen is shown and the relaunch time is not 0.</li>
+            </ul>
+        </div>
+    </details>
+
+    <details>
+        <summary>The CMS PC got a new IP address</summary>
+        <div>
+            <p>Give the PC its old IP back (best), or update <a href="#eslink">CMS IP on eslink</a>. Boxes that checked in before find the new address through eslink by themselves. New boxes need it typed in their Secret Menu.</p>
+        </div>
+    </details>
+
+    <details>
+        <summary>The box shows a MAC starting with 02:</summary>
+        <div>
+            <p>Android 10 hides the real MAC from apps without root. The launcher then uses a fixed stand-in made from the box's Android ID. It stays the same, so the box keeps its row on the CMS.</p>
+        </div>
+    </details>
+</section>
+
+<!-- ======================================================= REFERENCE -->
+<section id="reference">
+    <h2><span class="num">&#9679;</span>Quick reference</h2>
+    <div class="table-wrap"><table>
+        <thead><tr><th>Item</th><th>Value</th></tr></thead>
+        <tbody>
+            <tr><td>CMS web page</td><td class="wrap"><code>http://&lt;CMS IP&gt;:4053</code></td></tr>
+            <tr><td>Default CMS on a new box</td><td class="wrap"><code>172.19.0.3:4053</code></td></tr>
+            <tr><td>Check-in interval</td><td class="wrap">5 minutes, plus at start-up, network up and Check Now</td></tr>
+            <tr><td>Launcher package</td><td class="wrap"><code>com.excel.estvlauncher.custom</code></td></tr>
+            <tr><td>CMS folder</td><td class="wrap"><code>&lt;drive&gt;:\estv-custom-launcher-cms</code></td></tr>
+            <tr><td>CMS data</td><td class="wrap"><code>data\</code> in the CMS folder: <code>cms.db</code>, wallpaper, APKs. Back it up; the installer keeps it.</td></tr>
+            <tr><td>CMS logs</td><td class="wrap"><code>logs\</code> in the CMS folder</td></tr>
+            <tr><td>Ports</td><td class="wrap">TCP 4053 (boxes and web page), 5555 on the box (network ADB, backup install only)</td></tr>
+            <tr><td>eslink page</td><td class="wrap"><em>Other Products &rsaquo; Custom Launcher &rsaquo; CMS IP</em>, role <em>esTV Custom Launcher</em></td></tr>
+            <tr><td>Installer</td><td class="wrap"><code>https://files.estv.cloud/estv-custom-launcher-cms/installer/install.ps1</code></td></tr>
+        </tbody>
+    </table></div>
+</section>
+
+<footer>
+    esTV Custom Launcher manual · CMS 1.0.5 · Launcher 1.0.4
+</footer>
+
+</main>
+</div>
+
+<script>
+/**
+ * Manual page behaviour: theme switch, contents highlighting, contents menu on small screens, copy buttons, print.
+ * Plain JavaScript (no jQuery) so the file works offline when opened by double-click.
+ */
+( function() {
+    'use strict';
+
+    var root = document.documentElement;
+
+    /**
+     * @description Reads a stored value; storage may be blocked (private window, file://)
+     * @param {string} key - Storage key
+     * @returns {?string}
+     */
+    function readStore( key ) {
+        try { return window.localStorage.getItem( key ); } catch ( e ) { return null; }
+    }
+
+    /**
+     * @description Stores a value when storage is available
+     * @param {string} key - Storage key
+     * @param {string} value - Value
+     */
+    function writeStore( key, value ) {
+        try { window.localStorage.setItem( key, value ); } catch ( e ) { /* not available */ }
+    }
+
+    /**
+     * @description true when the page is shown dark now
+     * @returns {boolean}
+     */
+    function isDark() {
+        var t = root.getAttribute( 'data-theme' );
+        if ( t ) {
+            return t === 'dark';
+        }
+        return window.matchMedia && window.matchMedia( '(prefers-color-scheme: dark)' ).matches;
+    }
+
+    /**
+     * @description Updates the theme button to offer the other theme
+     */
+    function renderThemeButton() {
+        var dark = isDark();
+        document.getElementById( 'theme_icon' ).innerHTML  = dark ? '&#9728;' : '&#9790;';
+        document.getElementById( 'theme_label' ).textContent = dark ? 'Light' : 'Dark';
+    }
+
+    var saved = readStore( 'cl_manual_theme' );
+    if ( saved === 'light' || saved === 'dark' ) {
+        root.setAttribute( 'data-theme', saved );
+    }
+    renderThemeButton();
+
+    document.getElementById( 'btn_theme' ).addEventListener( 'click', function() {
+        var next = isDark() ? 'light' : 'dark';
+        root.setAttribute( 'data-theme', next );
+        writeStore( 'cl_manual_theme', next );
+        renderThemeButton();
+    } );
+
+    document.getElementById( 'btn_print' ).addEventListener( 'click', function() {
+        // Opens every troubleshooting answer for the printout
+        Array.prototype.forEach.call( document.querySelectorAll( 'details' ), function( d ) { d.open = true; } );
+        window.print();
+    } );
+
+    /* ---------- Contents menu on small screens ---------- */
+    var navBtn = document.getElementById( 'btn_nav' );
+
+    /**
+     * @description Opens or closes the contents menu
+     * @param {boolean} open - true to open
+     */
+    function setNav( open ) {
+        document.body.classList.toggle( 'nav-open', open );
+        navBtn.setAttribute( 'aria-expanded', open ? 'true' : 'false' );
+    }
+    navBtn.addEventListener( 'click', function() { setNav( !document.body.classList.contains( 'nav-open' ) ); } );
+
+    var links = Array.prototype.slice.call( document.querySelectorAll( '.sidebar a' ) );
+    links.forEach( function( a ) { a.addEventListener( 'click', function() { setNav( false ); } ); } );
+
+    /* ---------- Highlight the section being read ---------- */
+    var byId = {};
+    links.forEach( function( a ) { byId[ a.getAttribute( 'href' ).slice( 1 ) ] = a; } );
+    var targets = Object.keys( byId ).map( function( id ) { return document.getElementById( id ); } ).filter( Boolean );
+
+    /**
+     * @description Marks the last section whose top has passed the top bar
+     */
+    function spy() {
+        var current = targets[ 0 ];
+        targets.forEach( function( el ) {
+            if ( el.getBoundingClientRect().top <= 96 ) {
+                current = el;
+            }
+        } );
+        if ( window.innerHeight + window.scrollY >= document.body.scrollHeight - 4 ) {
+            current = targets[ targets.length - 1 ];
+        }
+        links.forEach( function( a ) { a.classList.toggle( 'active', a === byId[ current.id ] ); } );
+    }
+    var ticking = false;
+    window.addEventListener( 'scroll', function() {
+        if ( !ticking ) {
+            ticking = true;
+            window.requestAnimationFrame( function() { spy(); ticking = false; } );
+        }
+    }, { passive: true } );
+    spy();
+
+    /* ---------- Copy buttons ---------- */
+    Array.prototype.forEach.call( document.querySelectorAll( '.copy' ), function( btn ) {
+        btn.addEventListener( 'click', function() {
+            var text = document.getElementById( btn.getAttribute( 'data-copy' ) ).textContent;
+
+            /** @description Shows the result on the button for 1.5 s */
+            function done( label ) {
+                btn.textContent = label;
+                window.setTimeout( function() { btn.textContent = 'Copy'; }, 1500 );
+            }
+
+            if ( navigator.clipboard && window.isSecureContext ) {
+                navigator.clipboard.writeText( text ).then( function() { done( 'Copied' ); }, function() { done( 'Select it' ); } );
+                return;
+            }
+            // file:// and http pages: copy through a hidden text area
+            var ta = document.createElement( 'textarea' );
+            ta.value = text;
+            ta.setAttribute( 'readonly', '' );
+            ta.style.position = 'fixed';
+            ta.style.opacity  = '0';
+            document.body.appendChild( ta );
+            ta.select();
+            var ok = false;
+            try { ok = document.execCommand( 'copy' ); } catch ( e ) { ok = false; }
+            document.body.removeChild( ta );
+            done( ok ? 'Copied' : 'Select it' );
+        } );
+    } );
+}() );
+</script>
+</body>
+</html>

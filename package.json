@@ -1,6 +1,6 @@
 {
   "name": "estv-custom-launcher-cms",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Hotel CMS for the esTV Custom Launcher boxes: box list, wallpaper, home buttons and APK updates",
   "main": "server.js",
   "private": true,
